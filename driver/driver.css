@@ -1,0 +1,194 @@
+body {
+	margin: 0;
+	padding: 0;
+}
+
+form {
+	margin: 0;
+	padding: 0;
+	position: relative;
+}
+
+fieldset {
+	border: 1px solid black;
+	border-radius: 6px;
+	margin: 0.5em;
+	padding-top: 2em;
+	position: relative;
+}
+
+fieldset legend {
+	background: white;
+	border: 1px solid black;
+	border-top-left-radius: 6px;
+	border-top-right-radius: 6px;
+	display: block;
+	font-weight: bold;
+	left: -1px;
+	right: -1px;
+	padding: 2px;
+	position: absolute;
+	top: -1px;
+	width: auto;
+}
+
+fieldset span {
+	display: block;
+	margin: 2px;
+}
+
+fieldset span label {
+	display: inline-block;
+	width: 90px;
+}
+
+fieldset span input {
+	display: inline-block;
+}
+
+fieldset div.results {
+	overflow-wrap: anywhere;
+}
+
+input.address {
+	text-align: left;
+	width: 26em;
+}
+
+input.uint256,
+input.value {
+	margin-left: 15em;
+	text-align: right;
+	width: 11em;
+}
+
+#filter-container {
+	background: white;
+	border: 1px solid black;
+	border-radius: 8px;
+	padding: 1em;
+	position: fixed;
+	right: 0;
+	top: 0;
+	z-index: 100;
+}
+
+#filter-container .gear {
+	cursor: pointer;
+	float: right;
+	margin-top: -2px;
+}
+
+#config label{
+	display: inline-block;
+	margin-bottom: 0.5em;
+	width: 5em;
+}
+
+#config ul {
+	margin: 0;
+	margin-left: 2em;
+	padding: 0;
+}
+
+#config ul li {
+	background: white;
+	border: 1px solid black;
+	border-bottom: 0;
+	border-radius: 8px;
+	border-bottom-left-radius: 0;
+	border-bottom-right-radius: 0;
+	cursor: pointer;
+	display: inline-block;
+	list-style-type: none;
+	margin: 0;
+	padding: 0.25em 0.5em;
+}
+
+#config-container {
+	border: 1px solid black;
+	border-radius: 8px;
+	padding: 1em;
+}
+
+#config-container > .file > .file,
+#config-container > .json > .json,
+#config-container > .template > .template{
+	display: block;
+}
+
+#config-container > .file > .json,
+#config-container > .file > .template,
+#config-container > .json > .file,
+#config-container > .json > .template,
+#config-container > .template > .file,
+#config-container > .template > .json {
+	display: none;
+}
+
+#contract-abi-json {
+	display: block;
+	height: 5em;
+	width: 100%;
+}
+
+
+#contract-header {
+	margin-bottom: 0;
+}
+
+#events-content > fieldset {
+	background: #cfc;
+}
+
+#readers-content > fieldset {
+	background: #ccf;
+}
+
+#writers-content > fieldset{
+	background: #ffc;
+}
+
+#minters-content > fieldset {
+	background: #fcc;
+}
+
+.gas-check {
+	float: right;
+}
+	
+	
+.green,
+.blue,
+.yellow,
+.red {
+	display: inline-block;
+	height: 16px;
+	width: 16px;
+}
+
+.green {
+	background: #cfc;
+}
+.blue {
+	background: #ccf;
+}
+.yellow {
+	background: #ffc;
+}
+.red {
+	background: #fcc;
+}
+
+.active.green {
+	background: #3f3;
+}
+.active.blue {
+	background: #33f;
+}
+.active.yellow {
+	background: #ff3;
+}
+.active.red {
+	background: #f33;
+}
