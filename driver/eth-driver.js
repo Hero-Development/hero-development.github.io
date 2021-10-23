@@ -515,28 +515,27 @@ class EthereumDriver{
     }
   }
 
-  renderAll(){
+  async renderAll(){
     //HEADER
 
     //TODO: owner()
 //TODO: if correct chain
+    try{
+      const name = await this.session.contract.methods.name().call()
+      document.getElementById( 'contract-header' ).querySelector( '.name' ).innerText = name
+    }
+    catch( err ){
+      this.session.warn( err )
+    }
 
-    this.session.contract.methods.name().call()
-      .then( name => {
-        document.getElementById( 'contract-header' ).querySelector( '.name' ).innerText = name
-      })
-      .catch( err => {
-        this.session.warn( err )
-      })
 
-
-    this.session.contract.methods.symbol().call()
-      .then( symbol => {
-        document.getElementById( 'contract-header' ).querySelector( '.symbol' ).innerText = `(${symbol})`
-      })
-      .catch( err => {
-        this.session.warn( err )
-      })
+    try{
+      const symbol = await this.session.contract.methods.symbol().call()
+      document.getElementById( 'contract-header' ).querySelector( '.symbol' ).innerText = `(${symbol})`
+    }
+    catch( err ){
+      this.session.warn( err )
+    }
 
 
     try{
@@ -766,10 +765,24 @@ class EthereumDriver{
       return;
 
 
+    let name = '';
     try{
-      const name = await this.session.contract.methods.name().call()
-      const symbol = await this.session.contract.methods.symbol().call()
+      name = await this.session.contract.methods.name().call()
+    }
+    catch( err ){
+      this.session.warn( err )
+    }
 
+    let symbol = '';
+    try{
+      symbol = await this.session.contract.methods.symbol().call()
+    }
+    catch( err ){
+      this.session.warn( err )
+    }
+
+
+    try{
       let data = {}
       const json = localStorage.getItem( 'EthereumDriver.contracts' )
       if( json ){
@@ -782,7 +795,7 @@ class EthereumDriver{
 
       const contract = {
         address: address,
-        abiJson: JSON.stringify( abi ),
+        abiJson: abiJson,
         chainID: chainID
       }
       localStorage.setItem( address, JSON.stringify( contract ) )
