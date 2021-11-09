@@ -61,7 +61,7 @@ const Home: NextPage = () => {
   const categories = {
     Recent: <LoadRecentContractForm onSubmit={onSubmitContForm} />,
     New: <LoadContractForm onSubmit={onSubmitContForm} />,
-    Template: <div />,
+    // Template: <div />,
     Logs: <LogTab />,
   };
 
@@ -87,8 +87,8 @@ const Home: NextPage = () => {
               />
             </AppearTransition>
           ) : (
-            <div className="flex flex-col items-center justify-center h-full">
-              <p className="text-2xl font-bold">
+            <div className="flex flex-col items-center text-center justify-center h-full">
+              <p className="text-2xl font-bold ">
                 Please load a contract from the side pane.
               </p>
               <Image

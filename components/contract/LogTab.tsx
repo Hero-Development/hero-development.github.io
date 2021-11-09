@@ -13,16 +13,16 @@ export const LogTab = () => {
 
   return (
     <AppearTransition>
-      <div className="max-w-md p-6 overflow-y-auto " style={{ height: "82vh" }}>
+      <div className=" p-6 overflow-y-auto " style={{ height: "82vh" }}>
         <div className="flex justify-between w-full">
           <button
-            className=" mb-3 text-sm  text-red-700"
+            className=" mb-3 text-sm  text-red-500"
             onClick={() => setIsEventLog((prev) => !prev)}
           >
             {isEventLog ? "Show Event Logs" : "Show Contract Logs"}
           </button>
           <button
-            className=" mb-3 text-sm  text-red-700"
+            className=" mb-3 text-sm  text-red-500"
             onClick={!isEventLog ? clearEventLogs : clearLogs}
           >
             Clear all

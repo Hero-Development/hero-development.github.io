@@ -1,6 +1,7 @@
 import React from "react";
 import Head from "next/head";
 import { useTheme } from "next-themes";
+import { MenuIcon } from "@heroicons/react/solid";
 
 export const Header = () => {
   const [navbarOpen, setNavbarOpen] = React.useState(false);
@@ -17,7 +18,7 @@ export const Header = () => {
         <div className="container flex flex-wrap items-center justify-between px-4 mx-auto">
           <div className="relative flex justify-between w-full lg:w-auto lg:static lg:block lg:justify-start">
             <a
-              className="inline-block py-2 mr-4 text-sm font-bold leading-relaxed text-white uppercase whitespace-nowrap"
+              className="inline-block py-2 mr-4 text-base font-bold leading-relaxed text-white uppercase whitespace-nowrap"
               href="#pablo"
             >
               Contract-Utility
@@ -27,13 +28,13 @@ export const Header = () => {
               type="button"
               onClick={() => setNavbarOpen(!navbarOpen)}
             >
-              <i className="fas fa-bars"></i>
+              <MenuIcon className="w-7 h-7" aria-hidden="true" />
             </button>
           </div>
           <div
             className={
               "lg:flex flex-grow items-center" +
-              (navbarOpen ? " flex" : " hidden")
+              (navbarOpen ? " flex" : "  hidden")
             }
             id="example-navbar-danger"
           >
@@ -46,7 +47,6 @@ export const Header = () => {
                   <span className="ml-2">Help</span>
                 </a>
               </li>
-
               <li>
                 <a
                   className="flex items-center px-3 py-2 text-xs font-bold leading-snug text-white uppercase cursor-pointer hover:opacity-75"

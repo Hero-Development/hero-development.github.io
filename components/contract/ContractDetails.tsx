@@ -43,7 +43,7 @@ export const ContractDetails = (props: any) => {
   return (
     <>
       <div>
-        <p className="mb-4 text-2xl font-bold border-b dark:border-gray-700">
+        <p className="mb-4 mt-7 md:mt-0 text-2xl font-bold border-b dark:border-gray-700">
           Contract
         </p>
         <p>Network: {chain.name}</p>

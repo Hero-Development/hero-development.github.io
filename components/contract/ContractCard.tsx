@@ -9,12 +9,14 @@ import Authereum from "authereum";
 import toast from "react-hot-toast";
 import { useForm } from "react-hook-form";
 
+import { useTheme } from "next-themes";
+
 import { useLogsStore } from "../../store/logs";
 import { useEventLogsStore } from "../../store/eventLog";
 
 export const ContractCard = (props: any) => {
   const { type, ele, contract } = props;
-
+  const { theme } = useTheme();
   const [contractResponse, setContractResponse] = useState(null);
   const { register, handleSubmit, formState, control } = useForm({});
 
@@ -44,9 +46,9 @@ export const ContractCard = (props: any) => {
   ) => {
     const web3Modal = new Web3Modal({
       providerOptions, // required
-      theme: "dark",
+      theme: theme === "dark" ? "dark" : "light",
       network: "mainnet",
-      cacheProvider: false,
+      cacheProvider: true,
     });
 
     const provider = await web3Modal.connect();
@@ -166,7 +168,7 @@ export const ContractCard = (props: any) => {
             )}
           </div>
           {contractResponse ? (
-            <div className="w-full p-2 bg-gray-900 rounded-md">
+            <div className="w-full p-2 text-white bg-gray-700 dark:bg-gray-900 rounded-md">
               <p className="text-xs ">Response: </p>
               <p className="text-xs break-all ">
                 {JSON.stringify(contractResponse)}

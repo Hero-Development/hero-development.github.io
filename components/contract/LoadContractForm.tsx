@@ -36,10 +36,10 @@ export const LoadContractForm = (props: any) => {
 
   return (
     <AppearTransition>
-      <div className="max-w-md p-6 ">
+      <div className="p-6 ">
         <form
           onSubmit={handleSubmit(onSubmit)}
-          className="grid grid-cols-1 gap-6 transi"
+          className="grid grid-cols-1 md:gap-6"
         >
           <SelectField
             label="Chain"
