@@ -45,9 +45,10 @@ const Home: NextPage = () => {
       .sort((l: any, r: any) => {
         if (l.name < r.name) return -1;
         if (l.name > r.name) return 1;
-
         return 0;
       });
+    console.log("ABI", abi);
+    console.log("ABI Filter", functionsFiltered);
     setFunctions(functionsFiltered);
     const contExists = persistContract.find(
       (ele: any) => address === ele.address

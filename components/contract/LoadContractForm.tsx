@@ -33,7 +33,6 @@ export const LoadContractForm = (props: any) => {
     const values = { ...data, abi: JSON.parse(data.abi) };
     props.onSubmit(values);
   };
-  console.log(formState);
 
   return (
     <AppearTransition>
@@ -62,7 +61,6 @@ export const LoadContractForm = (props: any) => {
             error={formState.errors["abi"]}
             registration={register("abi")}
           />
-
           <div {...getRootProps()}>
             <input {...getInputProps()} />
             {isDragActive ? (
@@ -73,7 +71,6 @@ export const LoadContractForm = (props: any) => {
               </p>
             )}
           </div>
-
           <label className="block">
             <button
               type="submit"

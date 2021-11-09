@@ -1,6 +1,5 @@
 import React from "react";
 import { ContractCard } from "./ContractCard";
-import { COMMON_CHAINS } from "../../lib/constants";
 
 export const ContractDetails = (props: any) => {
   const { events, functions, contractAddress, chain, abi } = props;
@@ -41,7 +40,6 @@ export const ContractDetails = (props: any) => {
     },
   ];
 
-  console.log("CHAIn explorer", chain);
   return (
     <>
       <div>
@@ -80,7 +78,6 @@ export const ContractDetails = (props: any) => {
             />
             <span className="ml-2 text-xs">View</span>
           </label>
-
           <label className="inline-flex items-center mr-3">
             <input
               type="checkbox"
@@ -89,7 +86,6 @@ export const ContractDetails = (props: any) => {
             />
             <span className="ml-2 text-xs">Payable</span>
           </label>
-
           <label className="inline-flex items-center">
             <input
               type="checkbox"

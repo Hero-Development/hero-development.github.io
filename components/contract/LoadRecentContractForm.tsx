@@ -17,16 +17,12 @@ export const LoadRecentContractForm = (props: any) => {
     "eth-util-contract"
   );
 
-  const { register, handleSubmit, formState, control, getValues } = useForm({
+  const { handleSubmit, formState, control, getValues } = useForm({
     resolver: zodResolver(schema),
     defaultValues: { recent: persistContract[0] },
   });
 
-  console.log("FOrmState", formState);
-  console.log("Recent", getValues("recent"));
-
   const onSubmit = async (data: any) => {
-    console.log("LOAD RECENT CONTRACT FORM DATA", data);
     props.onSubmit(data.recent);
   };
 
@@ -48,7 +44,6 @@ export const LoadRecentContractForm = (props: any) => {
           ) : (
             <p className="mt-16 text-center">No Recent contracts</p>
           )}
-
           {persistContract.length ? (
             <label className="block">
               <button

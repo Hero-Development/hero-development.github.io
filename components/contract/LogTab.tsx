@@ -1,22 +1,35 @@
-import React from "react";
+import React, { useState } from "react";
 import { default as dayjs } from "dayjs";
 import { useLogsStore } from "../../store/logs";
+import { useEventLogsStore } from "../../store/eventLog";
 import { AppearTransition } from "../common/AppearTransition";
 
 export const LogTab = () => {
   const { logs, clearLogs } = useLogsStore();
-  console.log("LOGS", logs);
+  const { eventLogs, clearEventLogs } = useEventLogsStore();
+  const [isEventLog, setIsEventLog] = useState(false);
+
+  const selectedLog = !isEventLog ? eventLogs : logs;
+
   return (
     <AppearTransition>
       <div className="max-w-md p-6 overflow-y-auto " style={{ height: "82vh" }}>
-        <button
-          className="w-full mb-3 text-sm text-right text-red-700"
-          onClick={clearLogs}
-        >
-          Clear all
-        </button>
-        {logs.length ? (
-          logs.map((log) => (
+        <div className="flex justify-between w-full">
+          <button
+            className=" mb-3 text-sm  text-red-700"
+            onClick={() => setIsEventLog((prev) => !prev)}
+          >
+            {isEventLog ? "Show Event Logs" : "Show Contract Logs"}
+          </button>
+          <button
+            className=" mb-3 text-sm  text-red-700"
+            onClick={!isEventLog ? clearEventLogs : clearLogs}
+          >
+            Clear all
+          </button>
+        </div>
+        {selectedLog.length ? (
+          selectedLog.map((log) => (
             <div
               key={log.id}
               className="pb-4 mt-2 text-xs border-b dark:border-gray-700"
@@ -42,7 +55,9 @@ export const LogTab = () => {
                 </span>
               </p>
 
-              <p className="mt-1">Response: {JSON.stringify(log.data)}</p>
+              <p className="mt-1 break-all">
+                Response: {JSON.stringify(log.data)}
+              </p>
             </div>
           ))
         ) : (
