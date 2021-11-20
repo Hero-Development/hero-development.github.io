@@ -161,6 +161,19 @@ class EthereumDriver{
           value = input.value;
         }
 
+        if( ![ 'boolean', 'object', 'string' ].includes( typeof value ) ){
+          //revert to string format in case of long numbers
+          value = input.value;
+        }
+        
+        /*
+          //&& `${value}`.length > 16 ){
+          //convert back to string
+          value = `${value}`
+          // Number && Number.MAX_SAFE_INTEGER
+          9007199254740991
+        */
+
         data.push({
           'index': parseInt( input.attributes['data-index'] ),
           'name':  name,
