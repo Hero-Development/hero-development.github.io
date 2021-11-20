@@ -2,9 +2,7 @@ import { useState } from 'react';
 import toast from 'react-hot-toast';
 
 import { ReactComponent as SelectionLogo } from '@/assets/selection.svg';
-import { AppearTransition } from '@/components/common/AppearTransition';
-import { Header } from '@/components/common/Header';
-import { TabGroup } from '@/components/common/TabGroup';
+import { AppearTransition, Header, TabGroup, Footer } from '@/components/common';
 import {
   LoadContractForm,
   ContractDetails,
@@ -83,6 +81,7 @@ export const Home = () => {
               <SelectionLogo width={300} height={300} />
             </div>
           )}
+          <Footer />
         </div>
       </div>
     </>

@@ -20,7 +20,7 @@ export const Header = () => {
               className="inline-block py-2 mr-4 text-base font-bold leading-relaxed text-white uppercase whitespace-nowrap"
               href="#pablo"
             >
-              Contract-Utility
+              Contract Driver
             </a>
             <button
               className="block px-3 py-1 text-xl leading-none text-white bg-transparent border border-transparent border-solid rounded outline-none cursor-pointer lg:hidden focus:outline-none"
