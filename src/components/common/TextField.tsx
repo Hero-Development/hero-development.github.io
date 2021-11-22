@@ -11,7 +11,7 @@ type TextFieldProps = {
 };
 
 export const TextField = (props: TextFieldProps) => {
-  const { type = 'text', label, placeholder, registration, error } = props;
+  const { label, registration, error } = props;
 
   return (
     <label className="block">

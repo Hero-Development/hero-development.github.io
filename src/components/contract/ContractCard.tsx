@@ -17,7 +17,7 @@ export const ContractCard = (props: any) => {
   const { type, ele, contract } = props;
   // const { theme } = useTheme();
   const [contractResponse, setContractResponse] = useState(null);
-  const { register, handleSubmit, formState, control } = useForm({});
+  const { register, handleSubmit, formState } = useForm({});
 
   const providerOptions = {
     walletconnect: {
@@ -55,7 +55,7 @@ export const ContractCard = (props: any) => {
     const web3 = new Web3(provider);
     const accounts = await web3.eth.getAccounts();
     const address = accounts[0];
-    const networkId = await web3.eth.net.getId();
+    // const networkId = await web3.eth.net.getId();
     const cont = new web3.eth.Contract(contract.abi, contract.contractAddress);
 
     try {

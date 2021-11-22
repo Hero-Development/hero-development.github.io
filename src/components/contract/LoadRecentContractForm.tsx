@@ -11,9 +11,9 @@ export const LoadRecentContractForm = (props: any) => {
     recent: z.any(),
   });
 
-  const [persistContract, setPersistContract] = useLocalStorage([], 'eth-util-contract');
+  const [persistContract] = useLocalStorage([], 'eth-util-contract');
 
-  const { handleSubmit, formState, control, getValues } = useForm({
+  const { handleSubmit, control } = useForm({
     resolver: zodResolver(schema),
     defaultValues: { recent: persistContract[0] },
   });
@@ -38,14 +38,14 @@ export const LoadRecentContractForm = (props: any) => {
             <p className="mt-16 text-center">No Recent contracts</p>
           )}
           {persistContract.length ? (
-            <label className="block">
+            <div className="block">
               <button
                 type="submit"
                 className="w-full p-3 mt-3 text-sm font-bold tracking-wide text-gray-100 uppercase transition duration-500 transform bg-red-500 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 focus:outline-none focus:shadow-outline"
               >
                 Load
               </button>
-            </label>
+            </div>
           ) : null}
         </form>
       </div>

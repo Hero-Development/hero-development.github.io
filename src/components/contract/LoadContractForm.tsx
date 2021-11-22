@@ -27,7 +27,7 @@ export const LoadContractForm = (props: any) => {
     reader.readAsText(acceptedFiles[0]);
 
     reader.onload = () => {
-      if (!!reader.result) {
+      if (reader.result) {
         setValue('abi', reader.result);
         console.log('reader.result', reader.result);
       }
@@ -80,14 +80,14 @@ export const LoadContractForm = (props: any) => {
               </p>
             )}
           </div>
-          <label className="block">
+          <div className="block">
             <button
               type="submit"
               className="w-full p-3 mt-3 text-sm font-bold tracking-wide text-gray-100 uppercase transition duration-500 transform bg-red-500 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 focus:outline-none focus:shadow-outline"
             >
               Load
             </button>
-          </label>
+          </div>
         </form>
       </div>
     </AppearTransition>

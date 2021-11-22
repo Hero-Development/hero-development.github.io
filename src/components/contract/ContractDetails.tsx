@@ -61,7 +61,7 @@ export const ContractDetails = (props: any) => {
   };
 
   const onChangeSelect = (e: any) => {
-    const { name, checked, value } = e.target;
+    const { name, checked } = e.target;
     console.log(filterArray);
     if (checked) {
       setfilterArray((prev) => [...prev, name]);

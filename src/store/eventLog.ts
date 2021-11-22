@@ -1,5 +1,5 @@
-import { nanoid } from "nanoid";
-import create from "zustand";
+import { nanoid } from 'nanoid';
+import create from 'zustand';
 
 export type EventLog = {
   id: string;
@@ -11,7 +11,7 @@ export type EventLog = {
 
 type EventLogsStore = {
   eventLogs: EventLog[];
-  addEventLog: (eventlog: Omit<EventLog, "id">) => void;
+  addEventLog: (eventlog: Omit<EventLog, 'id'>) => void;
   clearEventLogs: () => void;
 };
 
