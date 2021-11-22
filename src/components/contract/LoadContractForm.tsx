@@ -11,22 +11,33 @@ import { AppearTransition } from '@/components/common/AppearTransition';
 import { COMMON_CHAINS } from '@/lib/constants';
 
 export const LoadContractForm = (props: any) => {
-  const onDrop = React.useCallback((acceptedFiles) => {}, []);
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    maxFiles: 1,
-    accept: 'application/json',
-  });
-
   const schema = z.object({
     chain: z.any(),
     address: z.string().nonempty({ message: 'Required' }),
     abi: z.string().nonempty({ message: 'Required' }),
   });
 
-  const { register, handleSubmit, formState, control } = useForm({
+  const { register, handleSubmit, formState, control, setValue } = useForm({
     resolver: zodResolver(schema),
+  });
+
+  const onDrop = React.useCallback((acceptedFiles) => {
+    const reader = new FileReader();
+
+    reader.readAsText(acceptedFiles[0]);
+
+    reader.onload = () => {
+      if (!!reader.result) {
+        setValue('abi', reader.result);
+        console.log('reader.result', reader.result);
+      }
+    };
+  }, []);
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    maxFiles: 1,
+    accept: 'application/json',
   });
 
   const onSubmit = async (data: any) => {

@@ -1,8 +1,10 @@
 import { ContractCard } from './ContractCard';
+import { useState } from 'react';
+import Fuse from 'fuse.js';
 
 export const ContractDetails = (props: any) => {
   const { events, functions, contractAddress, chain, abi } = props;
-  const data = [
+  const sortedData = [
     {
       name: 'eventLogs',
       Label: 'Event Logs',
@@ -37,6 +39,45 @@ export const ContractDetails = (props: any) => {
     },
   ];
 
+  const [searchString, setsearchString] = useState('');
+  const [filterArray, setfilterArray] = useState([]);
+
+  const onChangeSearch = (e: any) => {
+    console.log(searchString);
+    setsearchString(e.target.value);
+  };
+
+  const searchData = (data: any) => {
+    const options = {
+      includeScore: true,
+      keys: ['name'],
+      threshold: 0.8,
+    };
+    const fuse = new Fuse(data, options);
+    if (searchString) {
+      return fuse.search(searchString);
+    }
+    return data.map((item: any) => ({ item, matches: [], score: 1 }));
+  };
+
+  const onChangeSelect = (e: any) => {
+    const { name, checked, value } = e.target;
+    console.log(filterArray);
+    if (checked) {
+      setfilterArray((prev) => [...prev, name]);
+    } else {
+      const index = filterArray.indexOf(name);
+      setfilterArray((prev) => prev.splice(index, 1));
+    }
+  };
+
+  const filterData = (data: any) => {
+    if (filterArray.length) {
+      return data.filter((ele: any) => filterArray.includes(ele.attribute));
+    }
+    return data;
+  };
+
   return (
     <>
       <div>
@@ -62,43 +103,56 @@ export const ContractDetails = (props: any) => {
       <div className="pt-6 mt-6 text-right">
         <input
           type="text"
-          // value={props.value}
-          // onChange={onChange}
+          value={searchString}
+          onChange={onChangeSearch}
           className="h-8 pl-5 pr-8 border-0 rounded-md shadow dark:bg-gray-800 focus:border-gray-500 focus:bg-white focus:ring-0"
           placeholder="Search..."
         />
         <div className="flex justify-end mt-3">
           <label className="inline-flex items-center mr-3">
-            <input type="checkbox" className="text-blue-300 rounded focus:ring-0" />
+            <input
+              onChange={onChangeSelect}
+              type="checkbox"
+              name="view"
+              className="text-blue-300 rounded focus:ring-0"
+            />
             <span className="ml-2 text-xs">View</span>
           </label>
           <label className="inline-flex items-center mr-3">
-            <input type="checkbox" className="text-red-300 rounded focus:ring-0" checked />
+            <input
+              onChange={onChangeSelect}
+              type="checkbox"
+              name="payable"
+              className="text-red-300 rounded focus:ring-0"
+            />
             <span className="ml-2 text-xs">Payable</span>
           </label>
           <label className="inline-flex items-center">
-            <input type="checkbox" className="text-yellow-300 rounded focus:ring-0" checked />
+            <input
+              onChange={onChangeSelect}
+              type="checkbox"
+              name="nonpayable"
+              className="text-yellow-300 rounded focus:ring-0"
+            />
             <span className="ml-2 text-xs">Non-Payable</span>
           </label>
         </div>
       </div>
-      {data.map((type) =>
-        type.data.length ? (
-          <div key={type.name} className="pt-6">
-            <p className="mb-4 text-2xl font-bold border-b dark:border-gray-700">{type.Label}</p>
-            <div className="grid w-full grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
-              {type.data.map((elem: any) => (
-                <ContractCard
-                  key={elem.name}
-                  ele={elem}
-                  type={type}
-                  contract={{ abi, chain, contractAddress }}
-                />
-              ))}
-            </div>
+      {filterData(sortedData).map((data) => (
+        <div key={data.name} className="pt-6">
+          <p className="mb-4 text-2xl font-bold border-b dark:border-gray-700">{data.Label}</p>
+          <div className="grid w-full grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
+            {searchData(data.data).map((elem: any) => (
+              <ContractCard
+                key={elem.item.name}
+                ele={elem.item}
+                type={data}
+                contract={{ abi, chain, contractAddress }}
+              />
+            ))}
           </div>
-        ) : null
-      )}
+        </div>
+      ))}
     </>
   );
 };
