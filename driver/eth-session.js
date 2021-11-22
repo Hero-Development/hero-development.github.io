@@ -212,6 +212,11 @@ class EthereumSession{
   }
 
   static getError( err ){
+    if( err && err.code === 4001 ){
+      err.stack = null;
+      return err;
+    }
+    
     let text = JSON.stringify( err );
     if( text && text !== '{}' )
       return err;

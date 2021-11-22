@@ -49,21 +49,23 @@ class EthereumDriver{
     const requestDate = new Date();
     const method = this.session.contract.methods[ name ]( ...args )
     method[ type ]( options )
-      .then(async function(){
+      .then(async ( args ) => {
+        let response;
         const responseDate = new Date();
-
-        //gwei
-        let gasPrice = 1
-        if( type === 'estimateGas' ){
-          const tmp = await session.web3client.eth.getGasPrice()
-          gasPrice = Web3.utils.fromWei( `${tmp}`, 'gwei' )
-        }
-
-        const isAllKeys = abi.outputs.every( o => !!o.name )
-        const response = (abi.outputs.length && isAllKeys) ? {} : [];
         if( abi.outputs && abi.outputs.length ){
+          if( abi.outputs.length === 1 ){
+            args = [ args ];
+          }
+          else{
+            args.length = abi.outputs.length;
+            args = Array.prototype.slice.call( args );     
+          }
+
+          const isAllKeys = abi.outputs.every( o => !!o.name );
+          response = (abi.outputs.length && isAllKeys) ? {} : [];
+        
           //TODO: EthereumDriver.formatResponse( arguments )
-          Array.prototype.slice.call( arguments ).map(( arg, i ) => {
+          args.map(( arg, i ) => {
             const op = abi.outputs[i];
             switch( op.type ){
               case 'address':
@@ -72,11 +74,14 @@ class EthereumDriver{
                 //no-op
                 break;
 
+              case 'int256':
               case 'uint':
               case 'uint256':
-                const tmp = parseInt( arg )
-                if( !`${tmp}`.includes( '.' ) )
-                  arg = tmp
+                if( arg.length <= 16 ){
+                  const tmp = parseInt( arg );
+                  if( !`${tmp}`.includes( '.' ) )
+                    arg = tmp;
+                }
                 break;
 
               default:
@@ -90,9 +95,20 @@ class EthereumDriver{
               response.push( arg );
             }
           });
+
+          if( response.length && response.length == 1 )
+            response = response[0];
+
+
+          //gwei
+          let gasPrice = 1
+          if( type === 'estimateGas' ){
+            const tmp = await session.web3client.eth.getGasPrice();
+            gasPrice = Web3.utils.fromWei( `${tmp}`, 'gwei' );
+          }
         }
         else{
-          response.push( ...arguments )
+          response = args
         }
 
         const responseDiv = form.parentElement.querySelector( 'div.results' )
