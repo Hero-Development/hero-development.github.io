@@ -52,7 +52,18 @@ class EthereumDriver{
       .then(async ( args ) => {
         let response;
         const responseDate = new Date();
-        if( abi.outputs && abi.outputs.length ){
+        
+        if( type === 'estimateGas' ){
+          //gwei
+          let gasPrice = 1
+          if( type === 'estimateGas' ){
+            const tmp = await session.web3client.eth.getGasPrice();
+            gasPrice = Web3.utils.fromWei( `${tmp}`, 'gwei' );
+          }
+
+          response = args;
+        }
+        else if( abi.outputs && abi.outputs.length ){
           if( abi.outputs.length === 1 ){
             args = [ args ];
           }
@@ -98,14 +109,6 @@ class EthereumDriver{
 
           if( response.length && response.length == 1 )
             response = response[0];
-
-
-          //gwei
-          let gasPrice = 1
-          if( type === 'estimateGas' ){
-            const tmp = await session.web3client.eth.getGasPrice();
-            gasPrice = Web3.utils.fromWei( `${tmp}`, 'gwei' );
-          }
         }
         else{
           response = args
@@ -159,12 +162,14 @@ class EthereumDriver{
     const data = []
     for( let i = 0; i < form.length; ++i ){
       const input = form[i]
-      if( input.name === 'name' ){
-        //name = input.value
-      }
-      else if( input.name === '$value' ){
-      }
-      else if( input.type === 'text' ){
+      if( input.type === 'hidden' )
+        continue;
+
+      if( input.name === '$value' )
+        continue;
+
+
+      if( input.type === 'text' ){
         let name = input.name;
         if( !name )
           name = `${data.length}`
@@ -181,14 +186,6 @@ class EthereumDriver{
           //revert to string format in case of long numbers
           value = input.value;
         }
-        
-        /*
-          //&& `${value}`.length > 16 ){
-          //convert back to string
-          value = `${value}`
-          // Number && Number.MAX_SAFE_INTEGER
-          9007199254740991
-        */
 
         data.push({
           'index': parseInt( input.attributes['data-index'] ),

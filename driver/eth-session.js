@@ -541,17 +541,29 @@ EthereumSession.COMMON_CHAINS = {
     rpcURL:  'https://data-seed-prebsc-1-s1.binance.org:8545/'
   },
   137: {
-    name:    'Matic',
+    name:    'Polygon (Matic)',
     decimal:    137,
     hex:     '0x89',
-    rpcURL:  'https://rpc-mainnet.maticvigil.com/'
+    rpcURL:  'https://polygonscan.com/'
   },
   '0x89': {
-    name:    'Matic',
+    name:    'Polygon (Matic)',
     decimal:    137,
     hex:     '0x89',
-    rpcURL:  'https://rpc-mainnet.maticvigil.com/'
-  }
+    rpcURL:  'https://polygonscan.com/'
+  },
+  80001: {
+    name:    'Polygon Mumbai Testnet',
+    decimal:     80001,
+    hex:     '0x13881',
+    rpcURL:  'https://matic-mumbai.chainstacklabs.com/'
+  },
+  '0x13881': {
+    name:    'Polygon Mumbai Testnet',
+    decimal:     80001,
+    hex:     '0x13881',
+    rpcURL:  'https://matic-mumbai.chainstacklabs.com/'
+  },
 };
   
 EthereumSession.IOS_PLATFORMS = [
