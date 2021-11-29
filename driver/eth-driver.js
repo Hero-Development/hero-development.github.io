@@ -37,6 +37,7 @@ class EthereumDriver{
     const args = EthereumDriver.getFormArgs( form )
 
     const options = {
+      'type': '0x1',
       'from': this.session.wallet.accounts[0]
     };
     const abi = form.attributes['data-abi']
@@ -567,7 +568,7 @@ class EthereumDriver{
     try{
       let address = this.session.contractAddress
       if( this.session.chain.explorer ){
-        address += ` <small>(<a href="${this.session.chain.explorer}/address/${this.session.contractAddress}" target="_blank">Etherscan</a>)</small>`
+        address += `&#8203; <small>(<a href="${this.session.chain.explorer}/address/${this.session.contractAddress}" target="_blank">Etherscan</a>)</small>`
       }
 
       document.getElementById( 'contract-detail' ).querySelector( '.address' ).innerHTML = address
