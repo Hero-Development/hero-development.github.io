@@ -141,12 +141,14 @@ class EthereumSession{
   }
 
   async connectAccounts( deep ){
-    if( deep ){
-      this.wallet.accounts = await this.getWalletAccounts();
-    }
-    
     if( this.hasAccounts() )
       return true;
+
+    if( deep ){
+      this.wallet.accounts = await this.getWalletAccounts();
+      if( this.hasAccounts() )
+        return true;
+    }
 
     this.wallet.accounts = await this.getWalletAccounts();
     if( this.hasAccounts() )
@@ -161,13 +163,15 @@ class EthereumSession{
   }
 
   async connectChain( deep ){
+    if( this.isChainConnected() )
+      return true;
+
     if( deep ){
       const chainID = await this.getWalletChainID();
       this.wallet.chain = EthereumSession.getChain( chainID );
+      if( this.isChainConnected() )
+        return true;
     }
-
-    if( this.isChainConnected() )
-      return true;
 
     const chainID = await this.getWalletChainID();
     this.wallet.chain = EthereumSession.getChain( chainID );

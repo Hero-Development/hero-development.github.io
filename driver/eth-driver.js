@@ -36,21 +36,38 @@ class EthereumDriver{
     const name = EthereumDriver.getFormName( form )
     const args = EthereumDriver.getFormArgs( form )
 
-    const options = {
-      'type': '0x1',
+    const options1559 = {
       'from': this.session.wallet.accounts[0]
     };
     const abi = form.attributes['data-abi']
     if( abi.stateMutability === 'payable' ){
       const value = form.querySelector( 'input.value' ).value
-      options.value = Web3.utils.toWei( value, 'ether' )
+      if( value ){
+        options1559.value = Web3.utils.toWei( value, 'ether' )
+      }
     }
+    const optionsType1 = Object.assign({}, options1559);
+    optionsType1.type = '0x1';
 
     const session = this.session;
     const requestDate = new Date();
-    const method = this.session.contract.methods[ name ]( ...args )
-    method[ type ]( options )
-      .then(async ( args ) => {
+    const method = this.session.contract.methods[ name ]( ...args );
+    
+    try{
+      let args;
+      try{
+        args = await method[ type ]( options1559 );
+      }
+      catch( err ){
+        if( err.code && err.code === -32602 ){
+          delete options.type;
+          args = await method[ type ]( optionsType1 );
+        }
+        else
+          throw err
+      }
+
+
         let response;
         const responseDate = new Date();
         
@@ -70,7 +87,7 @@ class EthereumDriver{
           }
           else{
             args.length = abi.outputs.length;
-            args = Array.prototype.slice.call( args );     
+            args = Array.prototype.slice.call( args );
           }
 
           const isAllKeys = abi.outputs.every( o => !!o.name );
@@ -118,15 +135,15 @@ class EthereumDriver{
         const responseDiv = form.parentElement.querySelector( 'div.results' )
         responseDiv.style.color = '#000';
         responseDiv.innerHTML = `${responseDate.getTime()}<br />${responseDate.toISOString()}<hr />${JSON.stringify( response )}`
-      })
-      .catch( err => {
-        const responseDate = new Date();
-        const error = EthereumSession.getError( err );
+    }
+    catch( err ){
+      const responseDate = new Date();
+      const error = EthereumSession.getError( err );
 
-        const responseDiv = form.parentElement.querySelector( 'div.results' )
-        responseDiv.style.color = '#f66';
-        responseDiv.innerHTML = `${responseDate.getTime()}<br />${responseDate.toISOString()}<hr />${JSON.stringify( error )}`
-      })
+      const responseDiv = form.parentElement.querySelector( 'div.results' )
+      responseDiv.style.color = '#f66';
+      responseDiv.innerHTML = `${responseDate.getTime()}<br />${responseDate.toISOString()}<hr />${JSON.stringify( error )}`
+    }
   }
 
   static filter( filterConfig ){
@@ -183,7 +200,10 @@ class EthereumDriver{
           value = input.value;
         }
 
-        if( ![ 'boolean', 'object', 'string' ].includes( typeof value ) ){
+        if( [ 'boolean', 'object', 'string' ].includes( typeof value ) ){
+          //ok
+        }
+        else{
           //revert to string format in case of long numbers
           value = input.value;
         }
