@@ -92,18 +92,25 @@ input.value {
 }
 
 #config ul li {
-	background: white;
+	background: #666;
 	border: 1px solid black;
 	border-bottom: 0;
 	border-radius: 8px;
 	border-bottom-left-radius: 0;
 	border-bottom-right-radius: 0;
+	color: white;
 	cursor: pointer;
 	display: inline-block;
 	list-style-type: none;
 	margin: 0;
 	padding: 0.25em 0.5em;
 }
+
+#config ul li.active {
+	background: white;
+	color: black;
+}
+
 
 #config-container {
 	border: 1px solid black;

@@ -1,5 +1,6 @@
 
 class EthereumDriver{
+  instance = null;
   session = null;
   filterConfig = {
     regex: /.*/,
@@ -16,6 +17,8 @@ class EthereumDriver{
   };
 
   constructor( args ){
+    EthereumDriver.instance = this;
+    
     try{
       this.session = new EthereumSession( args );
     }
@@ -283,6 +286,14 @@ class EthereumDriver{
     }
   }
 
+  loadAddress( address ){
+    let contract = localStorage.getItem( address )
+    if( contract ){
+      contract = JSON.parse( contract )
+      this.load( contract.chainID, contract.address, contract.abiJson, false )
+    }
+  }
+
   async loadFile(){
     const chainID = document.getElementById( 'contract-network' ).value
     const contractAddress = document.getElementById( 'contract-address' ).value
@@ -306,39 +317,38 @@ class EthereumDriver{
     if( json ){
       const contracts = Object.values( JSON.parse( json ) )
       contracts.sort(( left, right ) => {
-        if( left.name < right.name )
-          return -1
-
-        if( left.name < right.name )
-          return 1
-
-        if( left.symbol < right.symbol )
-          return -1
-
-        if( left.symbol < right.symbol )
-          return 1
-
-        if( left.created < right.created )
-          return -1
-
         if( left.created < right.created )
           return 1
+
+        if( left.created > right.created )
+          return -1
+
+        //TODO: accessed
 
         return 0
       })
 
-      let html = ''
-      html += `<option value="">-- select contract --</option>`
+      let html = '<table border="1" cellpadding="2" cellspacing="0" style="border: 1px solid black; border-collapse: collapse;">';
+      html += '<tr><th></th><th>Created</th><th>Network</th><th>Address</th><th>Name</th><th>Symbol</th></tr>';
       for( let contract of contracts ){
-        let chain = ''
+        let chain = '(unknown)';
         if( contract.chainID ){
-          chain = `${EthereumSession.COMMON_CHAINS[ contract.chainID ].name}: `
+          chain = EthereumSession.COMMON_CHAINS[ contract.chainID ].name;
         }
-        html += `<option value="${contract.address}">${chain}${contract.name} (${contract.symbol})</option>`
-      }
 
-      const select = document.getElementById( 'recent-contract' )
-      select.innerHTML = html
+        html += `<tr id="${contract.address}">`
+            +`<td><a href="#" class="load-contract">Load</td>`
+            +`<td>${(new Date( contract.created )).toISOString().replace( 'T', ' ' ).replace( 'Z', '' )}</td>`
+            +`<td>${chain}</td>`
+            +`<td>${contract.address}</td>`
+            +`<td>${contract.name}</td>`
+            +`<td>${contract.symbol}</td>`
+          +`</tr>`;
+      }
+      html += '</table>';
+
+      const select = document.getElementById( 'recent-content' );
+      select.innerHTML = html;
     }
   }
 
@@ -359,14 +369,30 @@ class EthereumDriver{
     }
 
 
-    const recentContent = document.getElementById( 'recent-content' )
-    const loadContent = document.getElementById( 'load-content' )
+    const recentContent = document.getElementById( 'recent-content' );
+    const loadContent = document.getElementById( 'load-content' );
 
 
     //TODO: showTabRecent()
-    const recentTab = document.getElementById( 'recent-tab' )
+    const recentTab = document.getElementById( 'recent-tab' );
+    
+    //TODO: showTabLoadFile
+    const fileTab = document.getElementById( 'file-tab' );
+    
+    //TODO: showTabLoadJson
+    const jsonTab = document.getElementById( 'json-tab' );
+
+    //showTabLoadTemplate
+    const templateTab = document.getElementById( 'template-tab' );
+    
     if( recentTab ){
       recentTab.addEventListener( 'click', () => {
+        recentTab.classList.remove( 'active' );
+        fileTab.classList.remove( 'active' );
+        jsonTab.classList.remove( 'active' );
+        templateTab.classList.remove( 'active' );
+        recentTab.classList.add( 'active' );
+
         let el;
         for( let id of [ 'file-tab', 'json-tab', 'template-tab' ] ){
           el = document.getElementById( id )
@@ -386,10 +412,21 @@ class EthereumDriver{
       })
     }
 
-    //TODO: showTabLoadFile
-    const fileTab = document.getElementById( 'file-tab' )
+
+
     if( fileTab ){
       fileTab.addEventListener( 'click', () => {
+        recentTab.classList.remove( 'active' );
+        fileTab.classList.remove( 'active' );
+        jsonTab.classList.remove( 'active' );
+        templateTab.classList.remove( 'active' );
+        fileTab.classList.add( 'active' );
+
+
+        if( !fileTab.classList.contains( 'active' ) ){
+          fileTab.classList.add( 'active' );
+        }
+        
         let el;
         for( let id of [ 'file-tab', 'json-tab', 'template-tab' ] ){
           el = document.getElementById( id )
@@ -406,18 +443,28 @@ class EthereumDriver{
       })
     }
 
-    //TODO: showTabLoadJson
-    const jsonTab = document.getElementById( 'json-tab' )
+
     if( jsonTab ){
       jsonTab.addEventListener( 'click', () => {
+        recentTab.classList.remove( 'active' );
+        fileTab.classList.remove( 'active' );
+        jsonTab.classList.remove( 'active' );
+        templateTab.classList.remove( 'active' );
+        jsonTab.classList.add( 'active' );
+
         loadContent.className = 'json';
       })
     }
 
-    //showTabLoadTemplate
-    const templateTab = document.getElementById( 'template-tab' )
+
     if( templateTab ){
       templateTab.addEventListener( 'click', () => {
+        recentTab.classList.remove( 'active' );
+        fileTab.classList.remove( 'active' );
+        jsonTab.classList.remove( 'active' );
+        templateTab.classList.remove( 'active' );
+        templateTab.classList.add( 'active' );
+
         loadContent.className = 'template';
       })
     }
@@ -451,11 +498,14 @@ class EthereumDriver{
 
         const address = document.getElementById( 'recent-contract' ).value;
         if( address ){
+          this.loadAddress( address );
+          /*
           let contract = localStorage.getItem( address )
           if( contract ){
             contract = JSON.parse( contract )
             this.load( contract.chainID, contract.address, contract.abiJson, false )
           }
+          */
         }
       })
     }
@@ -558,6 +608,30 @@ class EthereumDriver{
         }
 
         EthereumDriver.filter( this.filterConfig );
+      });
+    }
+
+
+    document.addEventListener( 'click', evt => {
+      if( evt.target.nodeName === 'A' && evt.target.classList.contains( 'load-contract' ) ){
+        const address = evt.target.parentElement.parentElement.id;
+        this.loadAddress( address );
+      }
+    });
+    
+    const changeWallet = document.getElementById( 'change-wallet' )
+    if( changeWallet ){
+      changeWallet.addEventListener( 'click', async (evt) => {
+        if( evt && evt.cancelable )
+          evt.preventDefault();
+
+        this.session.wallet.accounts = await this.session.requestWalletAccounts();
+      });
+    }
+
+    if( window.ethereum ){
+      window.ethereum.on('accountsChanged', async (accounts) => {
+        this.session.wallet.accounts = accounts;
       });
     }
   }
