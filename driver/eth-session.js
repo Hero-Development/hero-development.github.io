@@ -69,13 +69,17 @@ class EthereumSession{
       this.contract = new window.ethers.Contract( this.contractAddress, this.contractABI, this.ethersProvider );
     }
 
-    if( window.ethereum.isConnected() ){
-      //if( subscribe )
-      //  this.subscribe();
+    try{
+      if( !window.ethereum.isConnected() )
+        return false;
     }
-    else{
-      return false;
+    catch( err ){
+      this.debug({ err })
     }
+
+
+    //if( subscribe )
+    //  this.subscribe();
 
 
     if( !(await this.connectChain( deep )) )
@@ -122,13 +126,18 @@ class EthereumSession{
     if( !this.contract )
       this.contract = new this.web3client.eth.Contract( this.contractABI, this.contractAddress );
 
-    if( window.ethereum.isConnected() ){
-      //if( subscribe )
-      //  this.subscribe();
+
+    try{
+      if( !window.ethereum.isConnected() )
+        return false;
     }
-    else{
-      return false;
+    catch( err ){
+      this.debug({ err })
     }
+
+
+    //if( subscribe )
+    //  this.subscribe();
 
 
     if( !(await this.connectChain( deep )) )
@@ -306,8 +315,13 @@ class EthereumSession{
   }
 
   isConnected(){
-    if( !window.ethereum.isConnected() )
-      return false;
+    try{
+      if( !window.ethereum.isConnected() )
+        return false;
+    }
+    catch( err ){
+      this.debug({ err })
+    }
 
     if( !this.isChainConnected() )
       return false;
