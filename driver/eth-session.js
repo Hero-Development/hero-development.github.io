@@ -17,10 +17,6 @@ class EthereumSession{
     this.contractAddress = args.contractAddress;
     this.contractABI = args.contractABI;
     this.wallet = new Wallet();
-
-    if( args.provider ){
-      this.provider = args.provider;
-    }
   }
 
   async addChain( chain ){
@@ -35,7 +31,7 @@ class EthereumSession{
     }
   }
 
-  async connectEthers( deep ){
+  async connectEthers( deep, provider ){
     if( !window.ethers ){
       try{
         window.ethers = require( 'ethers' );
@@ -46,16 +42,20 @@ class EthereumSession{
       }
     }
 
-    //let subscribe = false;
-    if( window.ethereum && !this.ethersProvider ){
-      //subscribe = true;
-      this.ethersProvider = new window.ethers.providers.Web3Provider( window.ethereum, 'any' );
-      this.debug( 'using browser' );
+    if( !provider ){
+      provider = window.ethereum;
     }
 
-    if( !this.ethersProvider && this.provider ){
+    //let subscribe = false;
+    if( !this.ethersProvider || provider != this.provider ){
+      if( provider == window.ethereum )
+        this.debug( 'using browser' );
+      else
+        this.debug( 'using NETWORK override' );
+
       //subscribe = true;
-      this.ethersProvider = new window.ethers.providers.Web3Provider( this.provider, 'any' );
+      this.provider = provider;
+      this.ethersProvider = new window.ethers.providers.Web3Provider( provider, 'any' );
       this.debug( 'using NETWORK override' );
     }
 
@@ -91,7 +91,7 @@ class EthereumSession{
     return true;
   }
 
-  async connectWeb3( deep ){
+  async connectWeb3( deep, provider ){
     //TODO: this.getWeb3Type();
 
     if( !window.Web3 ){
@@ -104,17 +104,20 @@ class EthereumSession{
       }
     }
 
-    //let subscribe = false;
-    if( window.ethereum && !this.web3client ){
-      //subscribe = true;
-      this.web3client = new window.Web3( window.ethereum );
-      this.debug( 'using browser' );
+    if( !provider ){
+      provider = window.ethereum;
     }
 
-    if( !this.web3client && this.provider ){
+    //let subscribe = false;
+    if( !this.web3client || provider != this.provider ){
+      if( provider == window.ethereum )
+        this.debug( 'using browser' );
+      else
+        this.debug( 'using NETWORK override' );
+
       //subscribe = true;
-      this.web3client = new window.Web3( this.provider );
-      this.debug( 'using NETWORK override' );
+      this.provider = provider;
+      this.web3client = new window.Web3( provider );
     }
 
     if( !this.web3client ){
