@@ -17,7 +17,7 @@ class EthereumSession{
     this.contractAddress = args.contractAddress;
     this.contractABI = args.contractABI;
     this.wallet = new Wallet();
-    
+
     if( args.provider ){
       this.provider = args.provider;
     }

@@ -140,6 +140,38 @@ input.value {
 }
 
 
+
+#recent-contracts .date {
+	white-space: nowrap;
+}
+
+#recent-contracts .delete-contract {
+	color: red;
+	font-size: 1.5em;
+	height: 0.75em;
+	line-height: 0.75em;
+	text-decoration: none;
+}
+
+#recent-contracts .delete-contract:hover {
+	font-weight: bold;
+}
+
+#recent-contracts .load-contract {
+	background: black;
+	border-radius: 5px;
+	color: white;
+	font-weight: bold;
+	padding: 2px 5px;
+	text-decoration: none;
+}
+
+#recent-contracts .load-contract:hover {
+	background: none;
+	color: black;
+}
+
+
 #contract-header {
 	margin-bottom: 0;
 }
@@ -160,6 +192,7 @@ input.value {
 	background: #fcc;
 }
 
+.event-subscribe,
 .gas-check {
 	float: right;
 }
@@ -198,4 +231,10 @@ input.value {
 }
 .active.red {
 	background: #f33;
+}
+
+
+.output {
+	font-family: monospace;
+	white-space: pre-wrap;
 }

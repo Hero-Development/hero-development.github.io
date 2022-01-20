@@ -3,20 +3,17 @@
   <meta charset="UTF-8"/>
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/web3/1.6.1/web3.min.js" integrity="sha512-5erpERW8MxcHDF7Xea9eBQPiRtxbse70pFcaHJuOhdEBQeAxGQjUwgJbuBDWve+xP/u5IoJbKjyJk50qCnMD7A==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <script src="eth-driver.js"></script>
   <script src="eth-session.js"></script>
   <link rel="stylesheet" type="text/css" href="driver.css" />
-  <style type="text/css">
-
-  </style>
 </head>
 <body>
 <div id="filter-container">
   <span class="gear">&#x2699;</span>
 
   filter:
-	<span class="green active"></span>
+  <span class="green active"></span>
   <span class="blue active"></span>
   <span class="yellow active"></span>
   <span class="red active"></span><br />
@@ -28,14 +25,50 @@
     <legend>Config</legend>
 
     <ul>
-      <li id="recent-tab">Recent</li>
+      <li id="recent-tab" class="active">Recent</li>
       <li id="file-tab">Load...</li>
       <li id="json-tab" style="display: none;">JSON</li>
       <li id="template-tab" style="display: none;">Template</li>
     </ul>
     <div id="config-container">
       <div id="recent-content">
-        <label>Recent: </label><select id="recent-contract"></select> &nbsp; <button id="btn-load-recent">Load</button>
+        <label>Recent:</label>
+
+        <table id="recent-contracts" border="1" cellpadding="2" cellspacing="0" style="border: 1px solid black; border-collapse: collapse;">
+        <thead>
+        <tr>
+          <th></th>
+          <th>Created</th>
+          <th>Network</th>
+          <th>Address</th>
+          <th>Name</th>
+          <th>Symbol</th>
+        </tr>
+        <tr>
+          <th></th>
+          <th></th>
+          <th>
+            <select id="recent-network">
+              <option value="" selected="selected">Any/All</option>
+              <option value="1">Ethereum: Mainnet</option>
+              <option value="3">Ethereum: Ropsten (testnet)</option>
+              <option value="4">Ethereum: Rinkeby (testnet)</option>
+              <option value="5">Ethereum: Goerli (testnet)</option>
+              <option value="42">Ethereum: Kovan (testnet)</option>
+              <option value="56">Binance: Mainnet</option>
+              <option value="97">Binance: (testnet)</option>
+              <option value="137">Polygon (Matic): Mainnet</option>
+              <option value="80001">Polygon (Matic): Mumbai (testnet)</option>
+            </select>
+          </th>
+          <th></th>
+          <th><input id="recent-name" type="text" /></th>
+          <th><input id="recent-symbol" type="text" /></th>
+        </tr>
+        </thead>
+        <tbody>
+        </tbody>
+        </table>
       </div>
 
       <div id="load-content" class="" style="display: none;">
@@ -61,14 +94,16 @@
           <label style="vertical-align: top;">ABI JSON:</label><br />
           <textarea id="contract-abi-json"></textarea>
         </div>
-        <!--
         <div class="template">
           <label style="vertical-align: top;">Template: </label>
-          <select>
-            <option value="ERC-721">ERC-721</option>
+          <select id="contract-abi-template">
+            <option value=""> -- select --</option>
+            <option value="ERC20">ERC-20</option>
+            <option value="ERC721">ERC-721</option>
+            <option value="ERC721Enumerable">ERC-721 Enumerable</option>
+            <option value="ERC721">ERC-1155</option>
           </select>
         </div>
-        -->
 
         <div style="text-align: right;">
           <button id="btn-load-contract">Load</button>
@@ -89,8 +124,10 @@
   <hr />
   <div id="contract-detail">
     <label>Address:</label> <span class="address"></span><br />
-    <label>Network:</label> <span class="network"></span>
+    <label>Network:</label> <span class="network"></span><br />
+		<label>Owner:</label> <span class="owner"></span>
   </div>
+  <button id="change-wallet">Change Wallet</button>
 
   <div id="events">
     <h2>Event Logs</h2>
@@ -116,12 +153,14 @@
   </div>
 </div>
 
-
 <script>
 window.addEventListener( 'DOMContentLoaded', () => {
   EthereumDriver.populateRecentContracts();
   const driver = new EthereumDriver({});
   driver.registerEvents();
+  
+  //const ABI = [];
+  //driver.load( 1, '0x00', ABI, false );
 });
 </script>
 </body>
