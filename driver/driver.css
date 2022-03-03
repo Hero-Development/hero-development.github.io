@@ -79,16 +79,33 @@ input.value {
 	margin-top: -2px;
 }
 
-#config label{
-	display: inline-block;
-	margin-bottom: 0.5em;
-	width: 5em;
+
+#config {
+	bottom: 1em;
+	position: fixed;
+	top: 5em;
+	width: 100%;
+	z-index: 100;
+}
+
+#config fieldset{
+	background: white;
+	height: calc(100% - 3em);
+	margin: 0.5em;
+}
+
+#config legend{
+	height: 1em;
+	line-height: 1em;
+	margin: 0;
+	padding: 0;
 }
 
 #config ul {
 	margin: 0;
 	margin-left: 2em;
 	padding: 0;
+	position: relative;
 }
 
 #config ul li {
@@ -101,6 +118,8 @@ input.value {
 	color: white;
 	cursor: pointer;
 	display: inline-block;
+	height: 1em;
+	line-height: 1em;
 	list-style-type: none;
 	margin: 0;
 	padding: 0.25em 0.5em;
@@ -115,8 +134,30 @@ input.value {
 #config-container {
 	border: 1px solid black;
 	border-radius: 8px;
+	height: calc(100% - 3.5em);
+	margin-top: -1px;
+	overflow: auto;
 	padding: 1em;
 }
+
+#config label{
+	display: inline-block;
+	margin-bottom: 0.5em;
+	width: 5em;
+}
+
+
+
+
+
+/* XXX
+border: 1px solid black;
+  bottom: 1em;
+	left: 1em;
+	position: absolute;
+	right: 1em;
+	top: 58px;
+*/
 
 #config-container > .file > .file,
 #config-container > .json > .json,
@@ -139,6 +180,15 @@ input.value {
 	width: 100%;
 }
 
+/*
+#recent-content {
+	bottom: 1em;
+	display: block;
+	overflow-y: scroll;
+	position: absolute;
+	top: 4em;
+}
+*/
 
 
 #recent-contracts .date {

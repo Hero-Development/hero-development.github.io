@@ -1,0 +1,134 @@
+<html>
+<head>
+  <meta charset="UTF-8"/>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/web3/1.6.1/web3.min.js" integrity="sha512-5erpERW8MxcHDF7Xea9eBQPiRtxbse70pFcaHJuOhdEBQeAxGQjUwgJbuBDWve+xP/u5IoJbKjyJk50qCnMD7A==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="eth-session.js"></script>
+</head>
+<body>
+<label>Contract:</label> <input type="text" id="contract-address" /> <button id="load-button">Load</button>
+<div id="output"></div>
+<div id="logs" style="white-space: pre-wrap;"></div>
+<script>
+let session;
+async function loadContract(){
+	const contractAddress = document.getElementById( 'contract-address' ).value;
+	session = new EthereumSession({
+		'chain': EthereumSession.COMMON_CHAINS[1],
+		'contractAddress': contractAddress,
+		'contractABI': [{"inputs":[],"name":"totalShares","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"totalReleased","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"account","type":"address"}],"name":"shares","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"account","type":"address"}],"name":"released","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"index","type":"uint256"}],"name":"payee","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"}]
+	});
+
+	await session.connectWeb3();
+	if( !session.isConnected() )
+		await session.connectWeb3( true );
+
+	const balanceWei = await session.web3client.eth.getBalance( contractAddress );
+	const balanceWeiBN = balanceWei instanceof Web3.utils.BN ?
+		balanceWei : new Web3.utils.BN( balanceWei );
+
+	const totalShares = Number(await session.contract.methods.totalShares().call());
+	const totalSharesBN = new Web3.utils.BN( totalShares );
+	
+	const totalReleasedWei = await session.contract.methods.totalReleased().call();
+	const totalReleasedWeiBN = totalReleasedWei instanceof Web3.utils.BN ?
+		totalReleasedWei : new Web3.utils.BN( totalReleasedWei );
+
+
+	//uint256 totalReceived = address(this).balance + _totalReleased;
+	const totalWeiBN = balanceWeiBN.add( totalReleasedWeiBN );
+
+
+	let i = 0;
+	let html = '';
+	let foundShares = 0;
+	const accounts = {};
+	while( foundShares < totalShares ){
+		try{
+			const account = await session.contract.methods.payee( i++ ).call();		
+			const shares = Number(await session.contract.methods.shares( account ).call());
+			const sharesBN = new Web3.utils.BN( shares );
+			
+			const releasedWei = await session.contract.methods.released( account ).call();
+			const releasedWeiBN = releasedWei instanceof Web3.utils.BN ?
+				releasedWei : new Web3.utils.BN( releasedWei );
+
+			if( account in accounts ){
+				session.error( `Account '${account}' has conflicting shares '${accounts[ account ].shares}' (active) and '${shares}' (ignored)` );
+				break;
+			}
+
+			//uint256 payment = (totalReceived * _shares[account]) / _totalShares - _released[account];
+			const paymentBN = totalWeiBN.mul( sharesBN ).div( totalSharesBN ).sub( releasedWeiBN );
+
+			foundShares += shares;
+			accounts[ account ] = {
+				'percent': shares / totalShares,
+				'shares': shares,
+				'releasedWei': releasedWeiBN,
+				'paymentWei': paymentBN
+			}
+
+			html += '<tr>'+
+				'<td>'+ account +'</td>'+
+
+				'<td></td>'+
+				//'<td></td>'+
+
+				'<td align="right">'+ Web3.utils.fromWei( releasedWeiBN.toString() ) +'</td>'+
+				//'<td align="right">'+ releasedWeiBN.toString() +'</td>'+
+
+				'<td align="right">'+ Web3.utils.fromWei( paymentBN.toString() ) +'</td>'+
+				//'<td align="right">'+ paymentBN.toString() +'</td>'+
+
+			'</tr>';
+		}
+		catch( err ){
+			session.warn( err );
+			break;
+		}
+	}
+
+	document.getElementById( 'output' ).innerHTML = '<table border="1" cellpadding="2" cellspacing="0" width="100%">'+
+		'<thead>'+
+		'<tr>'+
+			'<th></th>'+
+			'<th align="center">Total (ETH)</th>'+
+			//'<th align="center">Total (WEI)</th>'+
+			'<th align="center">Released (ETH)</th>'+
+			//'<th align="center">Released (WEI)</th>'+
+			'<th align="center">Balance (ETH)</th>'+
+			//'<th align="center">Balance (WEI)</th>'+
+		'</tr>'+
+		'</thead>'+
+		'<tbody>'+
+		'<tr>'+
+			'<td></td>'+
+
+			'<td align="right">'+ Web3.utils.fromWei( totalWeiBN.toString() ) +'</td>'+
+			//'<td align="right">'+ totalWeiBN.toString() +'</td>'+
+
+			'<td align="right">'+ Web3.utils.fromWei( totalReleasedWeiBN.toString() ) +'</td>'+
+			//'<td align="right">'+ totalReleasedWeiBN.toString() +'</td>'+
+
+			'<td align="right">'+ Web3.utils.fromWei( balanceWeiBN.toString() ) +'</td>'+
+			//'<td align="right">'+ balanceWeiBN.toString() +'</td>'+
+
+		'</tr>'+
+		html+
+		'</tbody>'+
+		'</table>';
+}
+
+window.addEventListener( 'DOMContentLoaded', () => {
+	document.getElementById( 'load-button' ).addEventListener( 'click', evt => {
+		if( evt && evt.cancelable )
+			evt.preventDefault();
+
+		loadContract();
+	});
+});
+</script>
+</body>
+</html>

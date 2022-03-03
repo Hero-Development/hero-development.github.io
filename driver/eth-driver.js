@@ -78,7 +78,9 @@ class EthereumDriver{
     const options1559 = {
       'from': this.session.wallet.accounts[0]
     };
-    const abi = form.attributes['data-abi']
+
+    //clone
+    const abi = Object.assign({},form.attributes['data-abi']);
     if( abi.stateMutability === 'payable' ){
       const value = form.querySelector( 'input.value' ).value;
       if( value ){
@@ -95,7 +97,8 @@ class EthereumDriver{
     try{
       let args;
       try{
-        args = await method.estimateGas( options1559 );
+        const options1559E = Object.assign({}, options1559);
+        args = await method.estimateGas( options1559E );
       }
       catch( err ){
         if( err.code && err.code === -32602 ){
@@ -137,7 +140,7 @@ class EthereumDriver{
         response = args;
       }
       else if( abi.outputs && abi.outputs.length ){
-        if( abi.outputs.length === 1 ){
+        if( abi.outputs.length === 1  ){
           args = [ args ];
         }
         else{
@@ -149,33 +152,9 @@ class EthereumDriver{
         response = (abi.outputs.length && isAllKeys) ? {} : [];
       
         //TODO: EthereumDriver.formatResponse( arguments )
-        args.map(( arg, i ) => {
-          let op = abi.outputs[i];
-          if( op.type.substring( 0, 3 ).toLowerCase() === 'int' )
-            op.type = 'int';
-          else if( op.type.substring( 0, 4 ).toLowerCase() === 'uint' )
-            op.type = 'uint';
-
-          switch( op.type ){
-            case 'address':
-            case 'bool':
-            case 'string':
-              //no-op
-              break;
-
-            case 'int':
-            case 'uint':
-              if( arg.length <= 16 ){
-                const tmp = parseInt( arg );
-                if( !`${tmp}`.includes( '.' ) )
-                  arg = tmp;
-              }
-              break;
-
-            default:
-              console.warn( op.type );
-          }
-
+        args.forEach(( arg, i ) => {
+          const op = abi.outputs[i];
+          arg = EthereumDriver.formatArgument( abi, arg, i );
           if( isAllKeys && op.name ){
             response[op.name] = arg;
           }
@@ -205,6 +184,44 @@ class EthereumDriver{
       responseDiv.style.color = '#f66';
       responseDiv.innerHTML = `${responseDate.getTime()}<br />${responseDate.toISOString()}<hr /><div class="output">${responseData}</div>`;
     }
+  }
+
+  static formatArgument( abi, arg, i ){
+    const op = abi.outputs[i];
+    //args.forEach(( arg, i ) => {
+    //let op = abi.outputs[i];
+    if( op.type.substring( 0, 3 ).toLowerCase() === 'int' )
+      op.type = 'int';
+    else if( op.type.substring( 0, 4 ).toLowerCase() === 'uint' )
+      op.type = 'uint';
+
+    switch( op.type ){
+      case 'address':
+      case 'bool':
+      case 'string':
+        return arg;
+
+      case 'int':
+      case 'uint':
+        if( Array.isArray( arg ) )
+          return arg.map( EthereumDriver.formatInt );
+        else
+          return EthereumDriver.formatInt( arg );
+
+      default:
+        console.warn( op.type );
+          return arg;
+    }
+  }
+
+  static formatInt( arg ){
+    if( arg.length <= 16 ){
+      const tmp = parseInt( arg );
+      if( !`${tmp}`.includes( '.' ) )
+        arg = tmp;
+    }
+
+    return arg;
   }
 
   static filter( configFilters ){
@@ -669,8 +686,6 @@ class EthereumDriver{
     const contractBtn = document.getElementById( 'btn-load-contract' );
     if( contractBtn ){
       contractBtn.addEventListener('click', evt => {
-        debugger;
-
         EthereumDriver.preventDefault( evt );
         const abiFile = document.getElementById( 'contract-abi-file' ).value;
         if( abiFile ){
@@ -1047,7 +1062,15 @@ class EthereumDriver{
 
     try{
       const json = localStorage.getItem( 'EthereumDriver.contracts' );
-      const data = json ? JSON.parse( json ) : {};
+      let data = json ? JSON.parse( json ) : {};
+      if( data.push ){
+        const tmp = {};
+        for( let d of data ){
+          tmp[ d.address ] = d;
+        }
+        data = tmp;
+      }
+
       if( address in data && !confirm( `Contract ${address} already exists.  Overwrite?` ) )
           return;
 
@@ -1059,18 +1082,18 @@ class EthereumDriver{
       };
       localStorage.setItem( address, JSON.stringify( contract ) );
 
-      data.push({
+      data[ address ] = {
         address,
         chainID: chainID,
         created: (new Date()).getTime(),
         name,
         symbol
-      });
+      };
       localStorage.setItem( 'EthereumDriver.contracts', JSON.stringify( data ) );
       EthereumDriver.populateRecentContracts( this.recentFilters );
     }
     catch( err ){
-      debugger;
+      console.warn({ err });
     }
   }
 
@@ -1081,21 +1104,70 @@ class EthereumDriver{
 
     const form = evt.target.form;
     const name = EthereumDriver.getFormName( form );
-    const args = EthereumDriver.getFormArgs( form );
+    let args = EthereumDriver.getFormArgs( form );
+    args = args.filter( arg => arg ).map( arg => {
+      return Web3.utils.padLeft( Web3.utils.toHex( arg ), 64 );
+      //Web3.utils.stripHexPrefix( arg );
+      //return '0x' + arg.substring(2).padStart( 64, '0' );
+    });
 
     const subArgs = {};
     subArgs.address = this.session.contractAddress;
-    subArgs.fromBlock = await this.getFirstBlock();
     subArgs.toBlock = 'latest';
 
     const hash = this.session.web3client.eth.abi.encodeEventSignature( form.attributes['data-abi'] );
     subArgs.topics = [
-      hash
+      hash,
+      //add args, encoded
+      ...args
     ];
 
-    //TODO: add args, encoded
-    const logs = await this.session.contract.getPastEvents( name, subArgs );
-debugger
+    
+    //TODO: totalSupply
+    //TODO: find last mint, then work back
+    const firstBlock = await this.getFirstBlock();
+    let lastBlock = await this.getLastBlock();
+    if( name === 'Transfer' ){
+      subArgs.fromBlock = firstBlock;
+
+      const lastToken = await this.session.contract.methods.totalSupply().call();
+      const lastToken2 = Web3.utils.padLeft( Web3.utils.toHex( lastToken - 1 ), 64 );
+      subArgs.topics.push( null, lastToken2 );
+
+      //Web3.utils.toHex
+      const lastLogs = await this.session.contract.getPastEvents( name, subArgs );
+      if( lastLogs.length ){
+        lastBlock = lastLogs[0].blockNumber;
+      }
+      else{
+        console.warn( 'Scanning ALL blocks back to deployment' );
+      }
+      
+      subArgs.topics.pop();
+      subArgs.topics.pop();
+    }
+
+    //TODO: Dupes?
+    //TODO: CSV
+    const output = [];
+    const step = 100;
+    subArgs.fromBlock = lastBlock - step;
+    subArgs.toBlock = subArgs.fromBlock + step;
+    while( subArgs.fromBlock >= firstBlock ){
+      console.log( `Checking blocks: ${subArgs.fromBlock} - ${subArgs.toBlock}` );
+
+      const logs = await this.session.contract.getPastEvents( name, subArgs );
+      for( let log of logs ){
+        //output.push( log.returnValues.to );
+        //console.info( log.returnValues );
+      }
+
+      //<div id="output"></div>
+      subArgs.toBlock = subArgs.fromBlock - 1;
+      subArgs.fromBlock -= step;
+    }
+
+    //document.getElementById( 'output' ).innerHTML = output.join( '<br />' );
   }
 
   showConfig( isShow ){
