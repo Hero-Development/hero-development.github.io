@@ -82,6 +82,8 @@ input.value {
 
 #config {
 	bottom: 1em;
+	overflow-x: auto;
+	overflow-y: clip;
 	position: fixed;
 	top: 5em;
 	width: 100%;
