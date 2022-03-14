@@ -286,7 +286,8 @@ class EthereumSession{
 		const isAllowed = await this.isWalletAllowed();
 		if( isAllowed !== false ){
 			try{
-				const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+				//const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+				const accounts = await this.web3client.eth.getAccounts();
 				return accounts;
 			}
 			catch( err ){
@@ -353,7 +354,8 @@ class EthereumSession{
 	//unlock
 	async requestWalletAccounts(){
 		try{
-			const accounts = await this.web3client.eth.getAccounts(); //window.ethereum.request({ method: 'eth_requestAccounts' })
+			//const accounts = await this.web3client.eth.getAccounts();
+			const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
 			return accounts
 		}
 		catch( err ){
