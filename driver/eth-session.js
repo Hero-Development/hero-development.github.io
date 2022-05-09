@@ -1,14 +1,12 @@
 
 class EthereumSession{
 	chain           = null;
-	contract        = null;
 	contractAddress = null;
 	contractABI     = null;
-	isWeb3Connected = false;
-	lastError       = null;
-	provider        = null;
 	wallet          = null;
 
+	contract        = null;
+	provider        = null;
 	ethersProvider  = null;
 	web3client      = null;
 
@@ -16,21 +14,23 @@ class EthereumSession{
 		this.chain = args.chain;
 		this.contractAddress = args.contractAddress;
 		this.contractABI = args.contractABI;
-		this.wallet = new Wallet();
+		this.wallet = new Wallet( this );
 	}
 
 	async addChain( chain ){
 		try{
-			this.lastError = null;
-			await window.ethereum.request({ method: 'wallet_addEthereumChain', params: [{ 'chainId': chain.hex, 'rpcUrls': chain.rpcURL }] });
+			await window.ethereum.request({
+				method: 'wallet_addEthereumChain',
+				params: [{ 'chainId': chain.hex, 'rpcUrls': chain.rpcURL }]
+			});
 			return true;
 		}
 		catch( err ){
-			this.lastError = err;
 			return false;
 		}
 	}
 
+/*
 	async connectEthers( deep, provider ){
 		if( !window.ethers ){
 			try{
@@ -90,6 +90,7 @@ class EthereumSession{
 
 		return true;
 	}
+*/
 
 	async connectWeb3( deep, provider ){
 		//TODO: this.getWeb3Type();
@@ -108,14 +109,12 @@ class EthereumSession{
 			provider = window.ethereum;
 		}
 
-		//let subscribe = false;
 		if( !this.web3client || provider != this.provider ){
 			if( provider == window.ethereum )
 				this.debug( 'using browser' );
 			else
 				this.debug( 'using NETWORK override' );
 
-			//subscribe = true;
 			this.contract = null;
 			this.provider = provider;
 			this.web3client = new window.Web3( provider );
@@ -142,16 +141,13 @@ class EthereumSession{
 		}
 
 
-		//if( subscribe )
-		//  this.subscribe();
-
-
 		if( !(await this.connectChain( deep )) )
 			return false;
 
 		if( !(await this.connectAccounts( deep )) )
 			return false;
 
+		this.wallet.subscribe();
 		return true;
 	}
 
@@ -179,13 +175,13 @@ class EthereumSession{
 		let chainID;
 		if( deep ){
 			chainID = await this.getWalletChainID();
-			this.wallet.chain = EthereumSession.getChain( chainID );
+			this.wallet.setChain( EthereumSession.getChain( chainID ) );
 			if( this.isChainConnected() )
 				return true;
 		}
 
 		chainID = await this.getWalletChainID();
-		this.wallet.chain = EthereumSession.getChain( chainID );
+		this.wallet.setChain( EthereumSession.getChain( chainID ) );
 		if( this.isChainConnected() )
 			return true;
 
@@ -193,19 +189,19 @@ class EthereumSession{
 		if( deep ){
 			if( await this.setChainID( this.chain.hex ) ){
 				chainID = await this.getWalletChainID();
-				this.wallet.chain = EthereumSession.getChain( chainID );
+				this.wallet.setChain( EthereumSession.getChain( chainID ) );
 				return this.isChainConnected();
 			}
 
 			if( await this.addChain( this.chain ) ){
 				chainID = await this.getWalletChainID();
-				this.wallet.chain = EthereumSession.getChain( chainID );
+				this.wallet.setChain( EthereumSession.getChain( chainID ) );
 				if( this.isChainConnected() )
 					return true;
 
 				if( await this.setChainID( this.chain.hex ) ){
 					chainID = await this.getWalletChainID();
-					this.wallet.chain = EthereumSession.getChain( chainID );
+					this.wallet.setChain( EthereumSession.getChain( chainID ) );
 					return this.isChainConnected();
 				}
 			}
@@ -226,6 +222,175 @@ class EthereumSession{
 
 		return null;
 	}
+
+	async getWalletAccounts(){
+		const isAllowed = await this.isWalletAllowed();
+		if( isAllowed !== false ){
+			
+			try{
+				let accounts = [];
+				if( this.web3client )
+					accounts = await this.web3client.eth.getAccounts();
+				else
+					accounts = await window.ethereum.request({ method: 'eth_accounts' });
+
+				return accounts;
+			}
+			catch( err ){
+				this.warn( 'getWalletAccounts', err );
+				return [];
+			}
+		}
+		else{
+			return [];
+		}
+	}
+
+	async getWalletChainID(){
+		try{
+			let chainID;
+			if( this.web3client )
+				chainID = await this.web3client.eth.getChainId();
+			else
+				chainID = await window.ethereum.request({ method: 'eth_chainId' });
+			return chainID;
+		}
+		catch( err ){
+			this.warn( 'getWalletChainID', err );
+			return null;
+		}
+	}
+
+	isChainConnected(){
+		const chain = this.wallet.getChain();
+		if( chain )
+			return chain.decimal === this.chain.decimal;
+		else
+			return false;
+	}
+
+	isConnected(){
+		try{
+			if( !window.ethereum.isConnected() )
+				return false;
+		}
+		catch( err ){
+			this.debug( err );
+		}
+
+		if( !this.isChainConnected() )
+			return false;
+
+		if( !this.hasAccounts() )
+			return false;
+		
+		return true;
+	}
+
+	async isWalletAllowed(){
+		try{
+			const permissions = await window.ethereum.request({ method: 'wallet_getPermissions' })
+			return permissions.some( p => p.parentCapability === 'eth_accounts' )
+		}
+		catch( err ){
+			this.warn( 'isWalletAllowed', err );
+			return null;
+		}
+	}
+
+	hasAccounts(){
+		return !!(this.wallet.accounts && this.wallet.accounts.length)
+	}
+
+	//unlock
+	async requestWalletAccounts(){
+		try{
+			let accounts = await this.web3client.eth.getAccounts();
+			if( !(accounts && accounts.length) ){
+				accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+			}
+			return accounts
+		}
+		catch( err ){
+			if( err.code === -32002 ){
+				alert( `Help!  Unlock your wallet and try again.` );
+			}
+			else if( err.code === 4001 ){
+				alert( `Oops!  No account(s) selected, try again.` );
+			}
+			else{
+				this.warn( 'requestWalletAccounts', err );
+				alert( `Oops!  Unknown wallet error, check your wallet and try again.` );
+			}
+			return []
+		}
+	}
+
+	async setChainID( hexChainID ){
+		try{
+			await window.ethereum.request({
+				method: 'wallet_switchEthereumChain',
+				params: [{ chainId: hexChainID }]
+			});
+			return true;
+		}
+		catch( err ){
+			if( err.code === 4001 ){
+				//user rejected selection
+			}
+			else if( err.code === 4902 ){
+				//add failed
+			}
+
+			return false;
+		}
+	}
+
+
+	/**
+	 * logging
+	 **/
+	debug( arg1 ){
+		const args = Array.prototype.slice.call( arguments );
+		console.debug( ...args );
+		this.log( 'DEBUG', ...args );
+	}
+
+	error( arg1 ){
+		const args = Array.prototype.slice.call( arguments );
+		console.error( ...args );
+		this.log( 'ERROR', ...args );
+	}
+
+	info( arg1 ){
+		const args = Array.prototype.slice.call( arguments );
+		console.info( ...args );
+		this.log( 'INFO', ...args );
+	}
+
+	log( severity, arg1 ){
+		try{
+			const logs = document.getElementById( 'logs' )
+			if( logs ){
+				const hr = document.createElement( 'hr' );
+				logs.appendChild( hr );
+
+				for( let i = 0; i < arguments.length; ++i ){
+					const json = document.createTextNode( JSON.stringify( arguments[i] ) )
+					logs.appendChild( json )
+				}
+			}
+		}
+		catch(_){}
+	}
+
+	warn( arg1 ){
+		const args = Array.prototype.slice.call( arguments );
+		console.warn( ...args );
+		this.log( 'WARN', ...args );
+	}
+
+
 
 	static getError( err ){
 		if( err && err.code === 4001 ){
@@ -282,197 +447,63 @@ class EthereumSession{
 		return err;
 	}
 
-	async getWalletAccounts(){
-		const isAllowed = await this.isWalletAllowed();
-		if( isAllowed !== false ){
-			try{
-				//const accounts = await window.ethereum.request({ method: 'eth_accounts' });
-				const accounts = await this.web3client.eth.getAccounts();
-				return accounts;
-			}
-			catch( err ){
-				this.warn( 'getWalletAccounts', err );
-				return [];
-			}
-		}
-		else{
-			return [];
-		}
+	async createTypedData( primaryType, message, types ){
+		//require primaryType in types
+
+		const domain = await this.getContractDomain();
+		types.EIP712Domain = [
+			{ name: 'name', type: 'string' },
+			{ name: 'chainId', type: 'uint256' },
+			{ name: 'version', type: 'string' },
+			{ name: 'verifyingContract', type: 'address' },
+		];
+
+		const typedData = {
+			primaryType,
+			domain,
+			types,
+			message
+		};
+		return typedData;
+	}
+	
+	async getContractDomain(){
+		const name = await this.contract.methods.name().call();
+		const domain = {
+			name:                              name,
+			version:                            '1',
+			chainId:             this.chain.decimal,
+			verifyingContract: this.contractAddress
+		};
+		return domain;
 	}
 
-	async getWalletChainID(){
-		try{
-			const chainID = await this.web3client.eth.getChainId(); //window.ethereum.request({ method: 'eth_chainId' });
-			return chainID;
-		}
-		catch( err ){
-			this.warn( 'getWalletChainID', err );
-			return null;
-		}
-	}
+	signTypedData( typedData ){
+		return new Promise(( resolve, reject ) => {
+			const signer = this.wallet.accounts[0];
+			const request = {
+				method: 'eth_signTypedData_v4',
+				from:   signer,
+				params: [ signer, JSON.stringify( typedData ) ]
+			};
 
-	isChainConnected(){
-		if( this.wallet.chain )
-			return this.wallet.chain.decimal === this.chain.decimal;
-		else
-			return false;
-	}
-
-	isConnected(){
-		try{
-			if( !window.ethereum.isConnected() )
-				return false;
-		}
-		catch( err ){
-			this.debug( err );
-		}
-
-		if( !this.isChainConnected() )
-			return false;
-
-		if( !this.hasAccounts() )
-			return false;
-		
-		return true;
-	}
-
-	async isWalletAllowed(){
-		try{
-			const permissions = await window.ethereum.request({ method: 'wallet_getPermissions' })
-			return permissions.some( p => p.parentCapability === 'eth_accounts' )
-		}
-		catch( err ){
-			this.warn( 'isWalletAllowed', err );
-			return null;
-		}
-	}
-
-	hasAccounts(){
-		return !!(this.wallet.accounts && this.wallet.accounts.length)
-	}
-
-	//unlock
-	async requestWalletAccounts(){
-		try{
-			//const accounts = await this.web3client.eth.getAccounts();
-			const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-			return accounts
-		}
-		catch( err ){
-			if( err.code === -32002 ){
-				alert( `Help!  Unlock your wallet and try again.` );
-			}
-			else if( err.code === 4001 ){
-				alert( `Oops!  No account(s) selected, try again.` );
-			}
-			else{
-				this.warn( 'requestWalletAccounts', err );
-				alert( `Oops!  Unknown wallet error, check your wallet and try again.` );
-			}
-			return []
-		}
-	}
-
-	async setChainID( hexChainID ){
-		try{
-			this.lastError = null;
-			await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: hexChainID }] });
-			return true;
-		}
-		catch( err ){
-			this.lastError = err;
-			if( err.code === 4001 ){
-				//user rejected selection
-			}
-			else if( err.code === 4902 ){
-				//add failed
-			}
-
-			return false;
-		}
-	}
-
-	subscribe(){
-		if( window.ethereum ){
-			/*
-			window.ethereum.on('connect', connectInfo => {
-				this.isWeb3Connected = true;
-				this.info({ 'isWeb3Connected': this.isWeb3Connected });
-			});
-
-			window.ethereum.on('disconnect', () => {
-				this.isWeb3Connected = false;
-				this.info({ 'isWeb3Connected': this.isWeb3Connected });
-			});
-			*/
-
-			window.ethereum.on('accountsChanged', accounts => {
-				this.wallet.accounts = accounts;
-			});
-
-			window.ethereum.on('chainChanged', chainID => {
-				const chain = EthereumSession.getChain( chainID );
-				if( !chain )
-					this.warn( `Unknown chain ${chainID}` );
-
-				this.wallet.chain = chain;
-			});
-
-			/*
-			window.ethereum.on('message', message => {
-				if( message.type === 'eth_subscription' ){
-					
+			this.provider.sendAsync( request, ( err, res ) => {
+				try{
+					if( err ){
+						reject( err );
+					}
+					else if( res.error ){
+						reject( res.error );
+					}
+					else{
+						resolve( res.result );
+					}
 				}
-				else{
-					this.debug( message );
+				catch( err ){
+					reject( err );
 				}
 			});
-			*/
-		}
-	}
-
-
-	/**
-	 * logging
-	 **/
-	debug( arg1 ){
-		const args = Array.prototype.slice.call( arguments );
-		console.debug( ...args );
-		this.log( 'DEBUG', ...args );
-	}
-
-	error( arg1 ){
-		const args = Array.prototype.slice.call( arguments );
-		console.error( ...args );
-		this.log( 'ERROR', ...args );
-	}
-
-	info( arg1 ){
-		const args = Array.prototype.slice.call( arguments );
-		console.info( ...args );
-		this.log( 'INFO', ...args );
-	}
-
-	log( severity, arg1 ){
-		try{
-			const logs = document.getElementById( 'logs' )
-			if( logs ){
-				const hr = document.createElement( 'hr' );
-				logs.appendChild( hr );
-
-				for( let i = 0; i < arguments.length; ++i ){
-					const json = document.createTextNode( JSON.stringify( arguments[i] ) )
-					logs.appendChild( json )
-				}
-			}
-		}
-		catch(_){}
-	}
-
-	warn( arg1 ){
-		const args = Array.prototype.slice.call( arguments );
-		console.warn( ...args );
-		this.log( 'WARN', ...args );
+		});
 	}
 }
 
@@ -602,8 +633,77 @@ class Wallet{
 	accounts = [];
 	chain    = null;
 
-	constructor(){
+	constructor( session ){
 		this.accounts = [];
 		this.chain = null;
+		this.session = session;
+
+		this.handleAccountsChanged = this.handleAccountsChanged.bind( this );
+		this.handleChainChanged = this.handleChainChanged.bind( this );
+	}
+
+	setAccounts( accounts ){
+		//TODO: clone
+		this.accounts = accounts;
+	}
+
+	getChain(){
+		//TODO: clone
+		return this.chain;
+	}
+
+	handleAccountsChanged( accounts ){
+		this.setAccounts( accounts );
+		this.session.provider.once( 'accountsChanged', this.handleAccountsChanged );
+	}
+
+	handleChainChanged( chainID ){
+		const chain = EthereumSession.getChain( chainID );
+		if( chain ){
+			this.setChain( chain );
+		}
+		else{
+			this.session.warn( `Unknown chain ${chainID}` );
+		}
+
+		this.session.provider.once( 'chainChanged', this.handleChainChanged );
+	}
+
+	setChain( chain ){
+		//TODO: clone
+		this.chain = chain;
+	}
+
+	subscribe(){
+		try{
+			/*
+			window.ethereum.on('connect', connectInfo => {
+				this.isWeb3Connected = true;
+				this.info({ 'isWeb3Connected': this.isWeb3Connected });
+			});
+
+			window.ethereum.on('disconnect', () => {
+				this.isWeb3Connected = false;
+				this.info({ 'isWeb3Connected': this.isWeb3Connected });
+			});
+			*/
+
+			this.session.provider.once( 'accountsChanged', this.handleAccountsChanged );
+			this.session.provider.once( 'chainChanged', this.handleChainChanged );
+
+			/*
+			window.ethereum.on('message', message => {
+				if( message.type === 'eth_subscription' ){
+					
+				}
+				else{
+					this.debug( message );
+				}
+			});
+			*/
+		}
+		catch( err ){
+			console.warn( err );
+		}
 	}
 }

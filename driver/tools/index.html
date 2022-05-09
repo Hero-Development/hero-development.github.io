@@ -4,9 +4,9 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/web3/1.6.1/web3.min.js" integrity="sha512-5erpERW8MxcHDF7Xea9eBQPiRtxbse70pFcaHJuOhdEBQeAxGQjUwgJbuBDWve+xP/u5IoJbKjyJk50qCnMD7A==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-  <script src="eth-driver.js"></script>
-  <script src="eth-session.js"></script>
-  <link rel="stylesheet" type="text/css" href="driver.css" />
+  <script src="/driver/eth-driver.js"></script>
+  <script src="/driver/eth-session.js"></script>
+  <link rel="stylesheet" type="text/css" href="/driver/driver.css" />
 </head>
 <body>
 <div id="filter-container">
@@ -39,12 +39,10 @@
         <tr>
           <th></th>
           <th>Created</th>
-					<!-- <th>Accessed</th> -->
           <th>Network</th>
           <th>Address</th>
           <th>Name</th>
           <th>Symbol</th>
-					<th></th>
         </tr>
         <tr>
           <th></th>
@@ -87,7 +85,6 @@
         </select><br />
 
         <label>Contract:</label> <input type="text" id="contract-address" value="" placeholder="(address)" style="width: 26em;"/> <button id="clear-file">×</button><br />
-				
 
         <div class="file">
           <label style="vertical-align: top;">ABI File: </label>
@@ -96,7 +93,6 @@
         <div class="json">
           <label style="vertical-align: top;">ABI JSON:</label><br />
           <textarea id="contract-abi-json"></textarea>
-					<button id="try-etherscan">Etherscan</button>
         </div>
         <div class="template">
           <label style="vertical-align: top;">Template: </label>
@@ -133,39 +129,185 @@
   </div>
   <button id="change-wallet">Change Wallet</button>
 
-  <div id="events">
-    <h2>Event Logs</h2>
-    <div id="events-content"></div>
-  </div>
-
-  <div id="readers">
-    <hr />
-    <h2>Readers</h2>
-    <div id="readers-content"></div>
-  </div>
-
-  <div id="writers">
-    <hr />
-    <h2>Writers</h2>
-    <div id="writers-content"></div>
-  </div>
-
-  <div id="minters">
-    <hr />
-    <h2>Minters</h2>
-    <div id="minters-content"></div>
-  </div>
 </div>
 
-<div id="output"></div>
+<h2>Tools</h2>
+<div id="tools">
+<button id="balanceOf">balanceOf</button>
+<button id="ownerOf">ownerOf</button>
+<button id="tokenURI">tokenURI</button>
+<button id="viewStake">viewStake</button>
+<button id="airdrop">airdrop</button>
+
+<div id="tools-output"></div>
+</div>
+
+<h2>Logs</h2>
+<div id="logs"></div>
+
 <script>
 window.addEventListener( 'DOMContentLoaded', () => {
   EthereumDriver.populateRecentContracts();
   const driver = new EthereumDriver({});
   driver.registerEvents();
-  
-  //const ABI = [];
-  //driver.load( 1, '0x00', ABI, false );
+
+	const toolsOut = document.getElementById( 'tools-output' );
+
+	document.getElementById( 'balanceOf' ).addEventListener( 'click', async (evt) => {
+		if( evt && evt.cancelable )
+			evt.preventDefault();
+
+		toolsOut.innerHTML = '';
+
+		const promises = [];
+		const wallets = {};
+		const totalSupply = await driver.session.contract.methods.totalSupply().call();
+		for( let tokenId = 0; tokenId < parseInt( totalSupply ); ++tokenId ){
+			const promise = new Promise(async ( resolve, reject ) => {
+					let lastErr = null;
+					for( let i = 0; i < 3; ++i ){
+							try{
+									const owner = await driver.session.contract.methods.ownerOf( tokenId ).call();
+									resolve([ tokenId, owner ]);
+									return;
+							}
+							catch( err ){
+									lastErr = err;
+							}
+					}
+					reject( lastErr );
+			});
+
+			promise.then(([ tokenId, owner ]) => {
+				toolsOut.innerHTML = '';
+				if( owner in wallets )
+					wallets[ owner ].push( tokenId );
+				else
+					wallets[ owner ] = [ tokenId ];
+			});
+
+			promises.push( promise );
+    };
+		await Promise.all( promises );
+
+		let output = '';
+		for( let [ key, tokenIds ] of Object.entries( wallets ) ){
+			output += `${key}\t${tokenIds.length}<br />\n`;
+		}
+		document.getElementById( 'tools-output' ).innerHTML = output;
+	});
+
+
+	document.getElementById( 'ownerOf' ).addEventListener( 'click', async (evt) => {
+		if( evt && evt.cancelable )
+			evt.preventDefault();
+
+		
+		//const quantities = {};
+		const totalSupply = await driver.session.contract.methods.totalSupply().call();
+		for( let i = 0; i <= parseInt( totalSupply ); ++i ){
+		
+			for( let j = 0; j < 3; ++j ){
+				try{
+					const owner = await driver.session.contract.methods.ownerOf( i ).call();
+					document.getElementById( 'tools-output' ).innerHTML += `${i}&#9;${owner}\n<br />`
+					break;
+				}
+				catch( err ){
+					const ethErr = EthereumSession.getError( err );
+					if( ethErr.message.includes( 'nonexistent' ) ){
+						document.getElementById( 'tools-output' ).innerHTML += `${i}\n<br />`
+						break;
+					}
+					else{
+						console.error({ err });
+					}
+				}
+			}
+		}
+	});
+
+	document.getElementById( 'tokenURI' ).addEventListener( 'click', async (evt) => {
+		if( evt && evt.cancelable )
+			evt.preventDefault();
+
+		
+		const quantities = {};
+		const totalSupply = await driver.session.contract.methods.totalSupply().call();
+		for( let i = 0; i < parseInt( totalSupply ); ){
+			try{
+				const uri = await driver.session.contract.methods.tokenURI( i ).call();
+				document.getElementById( 'tools-output' ).innerHTML += `${i}&#9;${uri}\n<br />`
+				++i;
+			}
+			catch( err ){
+				console.error({ err })
+			}
+		}
+	});
+	
+	
+	
+	document.getElementById( 'viewStake' ).addEventListener( 'click', async (evt) => {
+		if( evt && evt.cancelable )
+			evt.preventDefault();
+
+		
+		//const quantities = {};
+		//const totalSupply = await driver.session.contract.methods.totalSupply().call();
+		for( let i = 0; i <= 10000; ++i ){
+			for( let j = 0; j < 3; ++j ){
+				try{
+					const stake = await driver.session.contract.methods.viewStake( i ).call();
+					const [ owner, contract, tokenId, releaseTime, status ] = stake;
+					if( owner !== '0x0000000000000000000000000000000000000000' ){
+						document.getElementById( 'tools-output' ).innerHTML += `${i}&#9;${owner}\n<br />`
+					}
+					break;
+				}
+				catch( err ){
+					const ethErr = EthereumSession.getError( err );
+					if( ethErr.message.includes( 'nonexistent' ) ){
+						document.getElementById( 'tools-output' ).innerHTML += `${i}\n<br />`
+						break;
+					}
+					else{
+						console.error({ err });
+					}
+				}
+			}
+		}
+	});
+
+/*
+	const airdrops = [
+		"0x102DD33ef3c1af8736EDdCc30985fEB69e099cD8",
+		"0x086ad30A0fF0e544EF6c81d56BbbdD5dBE3e11F1",
+		"0x067872abb9A5Ebb9435bedc994d5e276b82C2E00"
+	];
+*/
+	document.getElementById( 'airdrop' ).addEventListener( 'click', async (evt) => {
+		if( evt && evt.cancelable )
+			evt.preventDefault();
+
+		const account = driver.session.wallet.accounts[0];
+		while( airdrops.length ){
+			const size = Math.min( airdrops.length, 100 );
+			const batch = airdrops.splice( 0, size );
+			const ids = batch.map( _ => 0 );
+			const quantities = batch.map( _ => 1 );
+			
+			const args = {
+				from: account,
+				gasPrice:             35_000_000_000,
+				maxPriorityFeePerGas: 45_000_000_000,
+			}
+
+			console.info({ sending: batch.length });
+			await driver.session.contract.methods.mintTo( batch, ids, quantities ).send( args );
+			console.info({ airdrops: airdrops.length });
+		}
+	});
 });
 </script>
 </body>

@@ -43,26 +43,49 @@ class EthereumDriver{
 		EthereumDriver.timeouts[ key ] = setTimeout( callback, delay );
 	}
 
-	deleteAddress( address, chainID ){
-		if( confirm( `Delete contract ${address} from local storage?` ) ){
-			let json = localStorage.getItem( 'EthereumDriver.contracts' );
-			if( json ){
-				let contracts = Object.values( JSON.parse( json ) );
-				contracts = contracts.filter( c => !( c.address === address && c.chainID === chainID ) );
-				json = JSON.stringify( contracts );
-				localStorage.setItem( 'EthereumDriver.contracts', json );
+	deleteAddress( chainID, address ){
+		if( !confirm( `Delete contract ${address} from local storage?` ) )
+			return;
+
+
+		let json = localStorage.getItem( 'EthereumDriver.contracts' );
+		if( !json )
+			return;
+
+
+		const contractKey = `${chainID}-${address}`;
+		let contracts = JSON.parse( json );
+		if( address in contracts ){
+			delete contracts[ address ];
+			let item = localStorage.getItem( address );
+			if( item ){
 				localStorage.removeItem( address );
-
-				EthereumDriver.populateRecentContracts( this.recentFilters );
-			}
-
-			let contract = localStorage.getItem( address );
-			if( contract ){
-				contract = JSON.parse( contract );
-				if( contract.address === address && contract.chainID === chainID )
-					localStorage.removeItem( address );
 			}
 		}
+
+		if( contractKey in contracts ){
+			delete contracts[ contractKey ];
+			let item = localStorage.getItem( contractKey );
+			if( item ){
+				localStorage.removeItem( contractKey );
+			}
+		}
+
+		//rebuild
+		const contractList = Object.values( contracts );
+		let found = contractList.find( c => !(c.chainID === chainID && c.address === address) );
+		if( found ){
+			contracts = {};
+			contractList.forEach( c => {
+				if( !(c.chainID === chainID && c.address === address) ){
+					const contractKey = `${c.chainID}-${c.address}`;
+					contracts[ contractKey ] = c;
+				}
+			});
+		}
+
+		localStorage.setItem( 'EthereumDriver.contracts', JSON.stringify( contracts ) );
+		EthereumDriver.populateRecentContracts( this.recentFilters );
 	}
 
 	async execute( evt, type ){
@@ -359,11 +382,19 @@ class EthereumDriver{
 			return;
 		}
 
-		//TODO: check address
+		
+		try{
+			address = Web3.utils.toChecksumAddress( address.trim() );
+		}
+		catch( err ){
+			alert( err );
+			debugger;
+		}
+
 
 		let abi;
 		try{
-			abi = JSON.parse( abiJson );
+			abi = JSON.parse( abiJson.trim() );
 		}
 		catch( err ){
 			alert( `Invalid ABI JSON` );
@@ -391,11 +422,23 @@ class EthereumDriver{
 		}
 	}
 
-	loadAddress( address ){
-		let contract = localStorage.getItem( address );
+	loadAddress( chainID, address ){
+		const contractKey = `${chainID}-${address}`;
+		let contract = localStorage.getItem( contractKey );
+		if( !contract ){
+			contract = localStorage.getItem( address );
+			if( contract ){
+				localStorage.removeItem( address );
+				localStorage.setItem( contractKey, contract );
+			}
+		}
+
 		if( contract ){
 			contract = JSON.parse( contract );
 			this.load( contract.chainID, contract.address, contract.abiJson, false );
+
+			//contract.accessed = (new Date()).getTime();
+			//localStorage.setItem( contractKey, JSON.stringify( contract ) );
 		}
 	}
 
@@ -457,17 +500,23 @@ class EthereumDriver{
 		if( !filters )
 			filters = {};
 
-		let contracts = Object.values( JSON.parse( json ) );
-		if( filters.chain )
-			contracts = contracts.filter( c => c.chainID == filters.chain );
 
-		if( filters.name )
-			contracts = contracts.filter( c => filters.name.test( c.name ) );
+		const filtered = [];
+		const contracts = JSON.parse( json );
+		for( let c of Object.values( contracts ) ){
+			if( filters.chain && !(c.chainID == filters.chain) )
+				continue;
 
-		if( filters.symbol )
-			contracts = contracts.filter( c => filters.symbol.test( c.symbol ) );
+			if( filters.name && !filters.name.test( c.name ) )
+				continue;
 
-		contracts.sort(( left, right ) => {
+			if( filters.symbol && !filters.symbol.test( c.symbol ) )
+				continue;
+
+			filtered.push( c );
+		}
+
+		filtered.sort(( left, right ) => {
 			if( left.created < right.created )
 				return 1;
 
@@ -480,22 +529,36 @@ class EthereumDriver{
 		});
 
 		let html = '';
-		for( let contract of contracts ){
+		for( let contract of filtered ){
 			let chain = '(unknown)';
 			if( contract.chainID ){
 				chain = EthereumSession.COMMON_CHAINS[ contract.chainID ].name;
 			}
 
+
+			let address;
+			const link = EthereumDriver.getEtherscanLink( contract.chainID, contract.address );
+			if( link ){
+				address = `${contract.address}&nbsp;<small><a href="${link}" target="_blank" rel="noreferer">&#x2197;</a></small>`;
+			}
+			else{
+				address = contract.address;
+			}
+
+
+			//const accessed = contract.accessed ?
+			//	(new Date( contract.accessed )).toISOString().replace( 'T', ' ' ).replace( 'Z', '' ) : '';
+			const created  = (new Date( contract.created )).toISOString().replace( 'T', ' ' ).replace( 'Z', '' );
 			html += `<tr id="${contract.address}">`
 					+'<td align="center">'
 						+'<a class="delete-contract" href="#" data-chain="'+ contract.chainID +'" data-address="'+ contract.address +'">'
 							+'&times</a></td>'
-					+`<td class="date">${(new Date( contract.created )).toISOString().replace( 'T', ' ' ).replace( 'Z', '' )}</td>`
+					+`<td class="date">${created}</td>`
 					+`<td>${chain}</td>`
-					+`<td>${contract.address}</td>`
+					+`<td>${address}</td>`
 					+`<td>${contract.name}</td>`
 					+`<td>${contract.symbol}</td>`
-					+'<td><a href="#" class="load-contract">Load</td>'
+					+'<td><a href="#" class="load-contract" data-chain="'+ contract.chainID +'" data-address="'+ contract.address +'">Load</td>'
 				+'</tr>';
 		}
 		recentTable.tBodies[0].innerHTML = html;
@@ -519,13 +582,14 @@ class EthereumDriver{
 				if( evt.target.classList.contains( 'delete-contract' ) ){
 					EthereumDriver.preventDefault( evt );
 					const address = EthereumDriver.getDataAttr( evt.target, 'data-address' );
-					const chainID = EthereumDriver.getDataAttr( evt.target, 'data-chain' );
-					this.deleteAddress( address, chainID );
+					const chainID = EthereumDriver.getDataAttrInt( evt.target, 'data-chain' );
+					this.deleteAddress( chainID, address );
 				}
-				if( evt.target.classList.contains( 'load-contract' ) ){
+				else if( evt.target.classList.contains( 'load-contract' ) ){
 					EthereumDriver.preventDefault( evt );
-					const address = evt.target.parentElement.parentElement.id;
-					this.loadAddress( address );
+					const address = EthereumDriver.getDataAttr( evt.target, 'data-address' );
+					const chainID = EthereumDriver.getDataAttrInt( evt.target, 'data-chain' );
+					this.loadAddress( chainID, address );
 				}
 			}
 		});
@@ -710,6 +774,28 @@ class EthereumDriver{
 				alert( 'No ABI' );
 			});
 		}
+		
+		const etherscanBtn = document.getElementById( 'try-etherscan' );
+		if( etherscanBtn ){
+			etherscanBtn.addEventListener('click', async( evt ) => {
+				const address = document.getElementById( 'contract-address' ).value;
+				if( address ){
+					const res = await fetch( `http://api.etherscan.io/api?module=contract&action=getabi&address=${address}` );
+					if( res.ok ){
+						const data = await res.json();
+						if( data.status === '1' ){
+							document.getElementById( 'contract-abi-json' ).value = data.result;
+						}
+						else{
+							alert( `${data.message}: ${data.result}` );
+						}
+					}
+					else{
+						alert( await res.text() );
+					}
+				}
+			});
+		}
 	}
 
 	registerRecentEvents(){
@@ -806,8 +892,13 @@ class EthereumDriver{
 
 		try{
 			let address = this.session.contractAddress;
-			if( this.session.chain.explorer ){
-				address += `&#8203; <small>(<a href="${this.session.chain.explorer}/address/${this.session.contractAddress}" target="_blank">Etherscan</a>)</small>`;
+			const link = EthereumDriver.getEtherscanLink( String( this.session.chain.decimal ), address );
+			if( link ){
+				address += `&#8203; <small><a href="${link}" target="_blank" rel="noreferer">&#x2197;</a></small>`;
+				//address += `&#8203; <small>(<a href="${this.session.chain.explorer}/address/${this.session.contractAddress}" target="_blank">Etherscan</a>)</small>`;
+			}
+			else{
+				address = contract.address;
 			}
 
 			document.getElementById( 'contract-detail' ).querySelector( '.address' ).innerHTML = address;
@@ -821,34 +912,39 @@ class EthereumDriver{
 
 		//EVENTS
 		const outputEl = document.getElementById( 'events-content' );
-		outputEl.innerHTML = '';
+		if( outputEl ){
+			outputEl.innerHTML = '';
 
-		const events = this.session.contractABI.filter( item => item.type === 'event' );
-		events.sort(( l, r ) => {
-			if( l.name < r.name )
-				return -1;
+			const events = this.session.contractABI.filter( item => item.type === 'event' );
+			events.sort(( l, r ) => {
+				if( l.name < r.name )
+					return -1;
 
-			if( l.name > r.name )
-				return 1;
+				if( l.name > r.name )
+					return 1;
 
-			return 0;
-		});
-		events.forEach( evt => {
-			const el = this.renderEvent( evt );
-			if( el )
-				outputEl.appendChild( el );
-		});
+				return 0;
+			});
+			events.forEach( evt => {
+				const el = this.renderEvent( evt );
+				if( el )
+					outputEl.appendChild( el );
+			});
+		}
 
 
 		//FUNCTIONS
 		const readersEl = document.getElementById( 'readers-content' );
-		readersEl.innerText = '';
+		if( readersEl )
+			readersEl.innerText = '';
 
 		const writersEl = document.getElementById( 'writers-content' );
-		writersEl.innerText = '';
+		if( writersEl )
+			writersEl.innerText = '';
 
 		const mintersEl = document.getElementById( 'minters-content' );
-		mintersEl.innerText = '';
+		if( mintersEl )
+			mintersEl.innerText = '';
 
 		const functions = this.session.contractABI.filter( item => item.type === 'function' );
 		functions.sort(( l, r ) => {
@@ -866,16 +962,19 @@ class EthereumDriver{
 			if( el ){
 				switch( func.stateMutability ){
 					case 'nonpayable':
-						writersEl.appendChild( el );
+						if( writersEl )
+							writersEl.appendChild( el );
 						break;
 
 					case 'payable':
-						mintersEl.appendChild( el );
+						if( mintersEl )
+							mintersEl.appendChild( el );
 						break;
 
 					case 'pure':
 					case 'view':
-						readersEl.appendChild( el )
+						if( readersEl )
+							readersEl.appendChild( el )
 						break;
 
 					default:
@@ -1123,34 +1222,29 @@ class EthereumDriver{
 
 		try{
 			const json = localStorage.getItem( 'EthereumDriver.contracts' );
-			let data = json ? JSON.parse( json ) : {};
-			if( data.push ){
-				const tmp = {};
-				for( let d of data ){
-					tmp[ d.address ] = d;
-				}
-				data = tmp;
-			}
-
-			if( address in data && !confirm( `Contract ${address} already exists.  Overwrite?` ) )
+			const contractKey = `${chainID}-${address}`;
+			const contracts = json ? JSON.parse( json ) : {};
+			if( contractKey in contracts && !confirm( `Contract ${address} already exists.  Overwrite?` ) )
 					return;
 
 
-			const contract = {
+			
+			const contractData = {
 				address: address,
 				abiJson: abiJson,
 				chainID: chainID
 			};
-			localStorage.setItem( address, JSON.stringify( contract ) );
+			localStorage.setItem( contractKey, JSON.stringify( contractData ) );
 
-			data[ address ] = {
+			contracts[ contractKey ] = {
 				address,
 				chainID: chainID,
+				//accessed: (new Date()).getTime(),
 				created: (new Date()).getTime(),
 				name,
 				symbol
 			};
-			localStorage.setItem( 'EthereumDriver.contracts', JSON.stringify( data ) );
+			localStorage.setItem( 'EthereumDriver.contracts', JSON.stringify( contracts ) );
 			EthereumDriver.populateRecentContracts( this.recentFilters );
 		}
 		catch( err ){
@@ -1358,4 +1452,19 @@ class EthereumDriver{
 		ERC721Enumerable: [{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"owner","type":"address"},{"indexed":true,"internalType":"address","name":"approved","type":"address"},{"indexed":true,"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"Approval","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"owner","type":"address"},{"indexed":true,"internalType":"address","name":"operator","type":"address"},{"indexed":false,"internalType":"bool","name":"approved","type":"bool"}],"name":"ApprovalForAll","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"from","type":"address"},{"indexed":true,"internalType":"address","name":"to","type":"address"},{"indexed":true,"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"Transfer","type":"event"},{"inputs":[{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"approve","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"owner","type":"address"}],"name":"balanceOf","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getApproved","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"owner","type":"address"},{"internalType":"address","name":"operator","type":"address"}],"name":"isApprovedForAll","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"name","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"ownerOf","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"from","type":"address"},{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"safeTransferFrom","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"from","type":"address"},{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"},{"internalType":"bytes","name":"_data","type":"bytes"}],"name":"safeTransferFrom","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"operator","type":"address"},{"internalType":"bool","name":"approved","type":"bool"}],"name":"setApprovalForAll","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"symbol","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"tokenURI","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"from","type":"address"},{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"transferFrom","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"bytes4","name":"interfaceId","type":"bytes4"}],"name":"supportsInterface","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"owner","type":"address"},{"internalType":"uint256","name":"index","type":"uint256"}],"name":"tokenOfOwnerByIndex","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"totalSupply","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"index","type":"uint256"}],"name":"tokenByIndex","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"}],
 		ERC1155: [{"inputs":[{"internalType":"string","name":"uri_","type":"string"}],"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"account","type":"address"},{"indexed":true,"internalType":"address","name":"operator","type":"address"},{"indexed":false,"internalType":"bool","name":"approved","type":"bool"}],"name":"ApprovalForAll","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"operator","type":"address"},{"indexed":true,"internalType":"address","name":"from","type":"address"},{"indexed":true,"internalType":"address","name":"to","type":"address"},{"indexed":false,"internalType":"uint256[]","name":"ids","type":"uint256[]"},{"indexed":false,"internalType":"uint256[]","name":"values","type":"uint256[]"}],"name":"TransferBatch","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"operator","type":"address"},{"indexed":true,"internalType":"address","name":"from","type":"address"},{"indexed":true,"internalType":"address","name":"to","type":"address"},{"indexed":false,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"value","type":"uint256"}],"name":"TransferSingle","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"string","name":"value","type":"string"},{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"}],"name":"URI","type":"event"},{"inputs":[{"internalType":"bytes4","name":"interfaceId","type":"bytes4"}],"name":"supportsInterface","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"uri","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"account","type":"address"},{"internalType":"uint256","name":"id","type":"uint256"}],"name":"balanceOf","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address[]","name":"accounts","type":"address[]"},{"internalType":"uint256[]","name":"ids","type":"uint256[]"}],"name":"balanceOfBatch","outputs":[{"internalType":"uint256[]","name":"","type":"uint256[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"operator","type":"address"},{"internalType":"bool","name":"approved","type":"bool"}],"name":"setApprovalForAll","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"account","type":"address"},{"internalType":"address","name":"operator","type":"address"}],"name":"isApprovedForAll","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"from","type":"address"},{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"uint256","name":"amount","type":"uint256"},{"internalType":"bytes","name":"data","type":"bytes"}],"name":"safeTransferFrom","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"from","type":"address"},{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256[]","name":"ids","type":"uint256[]"},{"internalType":"uint256[]","name":"amounts","type":"uint256[]"},{"internalType":"bytes","name":"data","type":"bytes"}],"name":"safeBatchTransferFrom","outputs":[],"stateMutability":"nonpayable","type":"function"}]
 	};
+
+	static getEtherscanLink( chainID, address ){
+		switch( chainID ){
+			case '1':
+				return `https://etherscan.io/address/${address}`;
+
+			case '4':
+				return `https://rinkeby.etherscan.io/address/${address}`;
+
+			case '137':
+				return `https://polygonscan.com/address/${address}`;
+		}
+		
+		return null;
+	}
 }
