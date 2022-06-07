@@ -138,6 +138,9 @@
 <button id="tokenURI">tokenURI</button>
 <button id="viewStake">viewStake</button>
 <button id="airdrop">airdrop</button>
+<!--
+<button id="accounts">accounts</button>
+-->
 
 <div id="tools-output"></div>
 </div>
@@ -234,7 +237,7 @@ window.addEventListener( 'DOMContentLoaded', () => {
 		
 		const quantities = {};
 		const totalSupply = await driver.session.contract.methods.totalSupply().call();
-		for( let i = 0; i < parseInt( totalSupply ); ){
+		for( let i = 0; i <= parseInt( totalSupply ); ){
 			try{
 				const uri = await driver.session.contract.methods.tokenURI( i ).call();
 				document.getElementById( 'tools-output' ).innerHTML += `${i}&#9;${uri}\n<br />`
@@ -286,6 +289,25 @@ window.addEventListener( 'DOMContentLoaded', () => {
 		"0x067872abb9A5Ebb9435bedc994d5e276b82C2E00"
 	];
 */
+	document.getElementById( 'accounts' ).addEventListener( 'click', async (evt) => {
+		if( evt && evt.cancelable )
+			evt.preventDefault();
+
+		const counts = {
+			"claimed": 0,
+			"purchased": 0
+		};
+		for( let account of airdrops ){
+			const owner = await driver.session.contract.methods.owners( account ).call();
+			console.info({ owner });
+
+			counts.claimed += parseInt( owner.claimed.toString() );
+			counts.purchased += parseInt( owner.purchased.toString() );
+		}
+
+		console.table( counts );
+	});
+
 	document.getElementById( 'airdrop' ).addEventListener( 'click', async (evt) => {
 		if( evt && evt.cancelable )
 			evt.preventDefault();

@@ -90,7 +90,7 @@ class EthereumDriver{
 
 	async execute( evt, type ){
 		EthereumDriver.preventDefault( evt );
-		if( !(await this.session.connectWeb3( true )) )
+		if( !(await this.session.connectWeb3( true, this.getProvider())) )
 			return;
 
 
@@ -277,13 +277,17 @@ class EthereumDriver{
 		return obj.getAttribute( attr );
 	};
 
+	getProvider(){
+		return this.provider || window.ethereum;
+	}
+
 	static isArg( input ){
 		if( input.name[0] === '$' ||
 			input.type === 'hidden' ||
 			input.attributes['data-index'] === undefined )
 			return false;
 
-		return input.type === 'text';
+		return [ 'text', 'textarea' ].includes( input.type );
 	}
 
 	static getFormArgs( form, remainder ){
@@ -407,7 +411,7 @@ class EthereumDriver{
 			contractABI:     abi
 		});
 
-		await this.session.connectWeb3( true );
+		await this.session.connectWeb3( true, this.getProvider() );
 		if( save ){
 			this.saveContract( chainID, address, JSON.stringify( abi ) );
 		}
@@ -1117,13 +1121,22 @@ class EthereumDriver{
 			const label = document.createElement( 'label' );
 			label.innerText = `${input.name}: `;
 
-			const inputEl = document.createElement( 'input' );
-			inputEl.name = input.name;
-			inputEl.type = 'text';
-			inputEl.innerText = input.name;
-			inputEl.placeholder = `${input.name} (${input.type})`;
-			inputEl.className = input.type;
-			inputEl.attributes['data-index'] = index;
+			let inputEl;
+			if( input.type === 'tuple' ){
+				inputEl = document.createElement( 'textarea' );
+				inputEl.name = input.name;
+				inputEl.placeholder = `${input.name} (${input.type})`;
+				inputEl.className = input.type;
+				inputEl.attributes['data-index'] = index;
+			}
+			else{
+				inputEl = document.createElement( 'input' );
+				inputEl.name = input.name;
+				inputEl.type = 'text';
+				inputEl.placeholder = `${input.name} (${input.type})`;
+				inputEl.className = input.type;
+				inputEl.attributes['data-index'] = index;
+			}
 
 			const span = document.createElement( 'span' );
 			span.appendChild( label );
@@ -1254,7 +1267,7 @@ class EthereumDriver{
 
 	async searchLogs( evt ){
 		EthereumDriver.preventDefault( evt );
-		if( !(await this.session.connectWeb3( true )) )
+		if( !(await this.session.connectWeb3( true, this.getProvider() )) )
 			return;
 
 
@@ -1424,7 +1437,7 @@ class EthereumDriver{
 
 	async subscribe( evt, eventAbi ){
 		EthereumDriver.preventDefault( evt );
-		if( !(await this.session.connectWeb3( true )) )
+		if( !(await this.session.connectWeb3( true, this.getProvider())) )
 			return;
 
 

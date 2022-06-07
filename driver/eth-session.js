@@ -109,8 +109,8 @@ class EthereumSession{
 			provider = window.ethereum;
 		}
 
-		if( !this.web3client || provider != this.provider ){
-			if( provider == window.ethereum )
+		if( !this.web3client || provider !== this.provider ){
+			if( provider === window.ethereum )
 				this.debug( 'using browser' );
 			else
 				this.debug( 'using NETWORK override' );
@@ -605,6 +605,19 @@ EthereumSession.COMMON_CHAINS = {
 		decimal:    137,
 		hex:     '0x89',
 		rpcURL:  'https://polygonscan.com/'
+	},
+
+	71401: {
+		name:    'Nervos Testnet',
+		decimal:  71401,
+		hex:     '0x116e9',
+		rpcURL:  'https://godwoken-testnet-v1.ckbapp.dev'
+	},
+	'0x116e9': {
+		name:    'Nervos Testnet',
+		decimal:  71401,
+		hex:     '0x116e9',
+		rpcURL:  'https://godwoken-testnet-v1.ckbapp.dev'
 	},
 	80001: {
 		name:    'Polygon Mumbai Testnet',
