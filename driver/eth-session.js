@@ -17,6 +17,30 @@ class EthereumSession{
 		this.wallet = new Wallet( this );
 	}
 
+/*
+type: 'ERC20',
+options: {
+	address: contractAddress,
+	symbol:  'ETH',
+	decimals: 18,
+	image:   'image',
+}
+*/
+	async addAsset( params ){
+		try{
+			const res = await window.ethereum.request({
+				method: 'wallet_watchAsset',
+				params: params
+			});
+			console.info({ res });
+			return true;
+		}
+		catch( err ){
+			this.warn( 'addAsset', err );
+			return false;
+		}
+	}
+
 	async addChain( chain ){
 		try{
 			await window.ethereum.request({
@@ -129,15 +153,6 @@ class EthereumSession{
 		if( !this.contract ){
 			this.contract = new this.web3client.eth.Contract( this.contractABI, this.contractAddress );
 			this.contract.setProvider( this.provider );
-		}
-
-
-		try{
-			if( !window.ethereum.isConnected() )
-				return false;
-		}
-		catch( err ){
-			this.debug( err );
 		}
 
 
@@ -448,7 +463,7 @@ class EthereumSession{
 	}
 
 	async createTypedData( primaryType, message, types ){
-		//require primaryType in types
+		//TODO: require primaryType in types
 
 		const domain = await this.getContractDomain();
 		types.EIP712Domain = [
@@ -645,29 +660,36 @@ EthereumSession.IOS_PLATFORMS = [
 class Wallet{
 	accounts = [];
 	chain    = null;
+	handlers = {};
 
 	constructor( session ){
 		this.accounts = [];
 		this.chain = null;
 		this.session = session;
 
+		this.handlers = {};
 		this.handleAccountsChanged = this.handleAccountsChanged.bind( this );
 		this.handleChainChanged = this.handleChainChanged.bind( this );
 	}
 
 	setAccounts( accounts ){
-		//TODO: clone
-		this.accounts = accounts;
+		if( accounts && accounts.length )
+			this.accounts = [...accounts];
+		else
+			this.accounts = accounts;
+
+		this.trigger( 'accountsChanged', this.session );
 	}
 
 	getChain(){
-		//TODO: clone
-		return this.chain;
+		return this.chain ? {...this.chain} : null;
 	}
 
 	handleAccountsChanged( accounts ){
 		this.setAccounts( accounts );
 		this.session.provider.once( 'accountsChanged', this.handleAccountsChanged );
+
+		this.trigger( 'accountsChanged', this );
 	}
 
 	handleChainChanged( chainID ){
@@ -682,9 +704,16 @@ class Wallet{
 		this.session.provider.once( 'chainChanged', this.handleChainChanged );
 	}
 
+	on( eventName, callback ){
+		if( !(eventName in this.handlers) )
+			this.handlers[ eventName ] = [];
+
+		this.handlers[ eventName ].push( callback );
+		return this;
+	}
+
 	setChain( chain ){
-		//TODO: clone
-		this.chain = chain;
+		this.chain = chain ? {...chain} : chain;
 	}
 
 	subscribe(){
@@ -701,8 +730,10 @@ class Wallet{
 			});
 			*/
 
-			this.session.provider.once( 'accountsChanged', this.handleAccountsChanged );
-			this.session.provider.once( 'chainChanged', this.handleChainChanged );
+			if( this.session.provider.once ){
+				this.session.provider.once( 'accountsChanged', this.handleAccountsChanged );
+				this.session.provider.once( 'chainChanged', this.handleChainChanged );
+			}
 
 			/*
 			window.ethereum.on('message', message => {
@@ -717,6 +748,19 @@ class Wallet{
 		}
 		catch( err ){
 			console.warn( err );
+		}
+	}
+
+	trigger( eventName, ...args ){
+		if( eventName in this.handlers && this.handlers[ eventName ] ){
+			for( let handler of this.handlers[ eventName ] ){
+				try{
+					handler( ...args );
+				}
+				catch( err ){
+					console.warn({ eventName: err });
+				}
+			}
 		}
 	}
 }

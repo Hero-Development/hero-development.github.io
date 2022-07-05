@@ -210,15 +210,19 @@ class EthereumDriver{
 	}
 
 	static formatArgument( abi, arg, i ){
-		const op = abi.outputs[i];
+		const param = abi.outputs[i];
 		//args.forEach(( arg, i ) => {
-		//let op = abi.outputs[i];
-		if( op.type.substring( 0, 3 ).toLowerCase() === 'int' )
-			op.type = 'int';
-		else if( op.type.substring( 0, 4 ).toLowerCase() === 'uint' )
-			op.type = 'uint';
+		//let param = abi.outputs[i];
+		
+		let type;
+		if( param.type.substring( 0, 3 ).toLowerCase() === 'int' )
+			type = 'int';
+		else if( param.type.substring( 0, 4 ).toLowerCase() === 'uint' )
+			type = 'uint';
+		else
+			type = param.type;
 
-		switch( op.type ){
+		switch( type ){
 			case 'address':
 			case 'bool':
 			case 'string':
@@ -232,7 +236,7 @@ class EthereumDriver{
 					return EthereumDriver.formatInt( arg );
 
 			default:
-				console.warn( op.type );
+				console.warn( type );
 					return arg;
 		}
 	}
@@ -1122,7 +1126,9 @@ class EthereumDriver{
 			label.innerText = `${input.name}: `;
 
 			let inputEl;
-			if( input.type === 'tuple' ){
+			const isTuple = input.type === 'tuple';
+			const isArray = input.type.substring( input.type.length - 2 ) === '[]';
+			if( isTuple || isArray ){
 				inputEl = document.createElement( 'textarea' );
 				inputEl.name = input.name;
 				inputEl.placeholder = `${input.name} (${input.type})`;
