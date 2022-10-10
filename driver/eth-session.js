@@ -7,7 +7,10 @@ class EthereumSession{
 
 	contract        = null;
 	provider        = null;
-	ethersProvider  = null;
+
+	clientType      = null;
+	ethersClient    = null;
+	ethersSigner    = null;
 	web3client      = null;
 
 	constructor( args ){
@@ -28,10 +31,14 @@ options: {
 */
 	async addAsset( params ){
 		try{
-			const res = await window.ethereum.request({
-				method: 'wallet_watchAsset',
-				params: params
-			});
+      let res;
+      if( this.provider.request ){
+  			res = await this.provider.request({
+  				method: 'wallet_watchAsset',
+  				params: params
+  			});
+      }
+
 			console.info({ res });
 			return true;
 		}
@@ -43,22 +50,30 @@ options: {
 
 	async addChain( chain ){
 		try{
-			await window.ethereum.request({
-				method: 'wallet_addEthereumChain',
-				params: [{ 'chainId': chain.hex, 'rpcUrls': chain.rpcURL }]
-			});
+      let res;
+			if( this.provider.request ){
+        res = await this.provider.request({
+					method: 'wallet_addEthereumChain',
+					params: [{ 'chainId': chain.hex, 'rpcUrls': chain.rpcURL }]
+				});
+			}
+
 			return true;
 		}
 		catch( err ){
+			this.warn( 'addChain', err );
 			return false;
 		}
 	}
 
-/*
+
 	async connectEthers( deep, provider ){
-		if( !window.ethers ){
+		var ethers;
+
+		if( !ethers ){
 			try{
-				window.ethers = require( 'ethers' );
+				ethers = window.ethers;
+				//ethers = require( 'ethers' );
 			}
 			catch( err ){
 				this.error( "'ethers' is undefined and cannot be imported" );
@@ -66,62 +81,61 @@ options: {
 			}
 		}
 
-		if( !provider ){
+
+		if( provider && provider !== window?.ethereum){
+			this.debug( 'using NETWORK override' );
+		}
+		else if( window?.ethereum ){
+			this.debug( 'using browser' );
 			provider = window.ethereum;
 		}
+		else{
+			this.error( "no provider" );
+			return false;
+		}
 
-		//let subscribe = false;
-		if( !this.ethersProvider || provider != this.provider ){
-			if( provider == window.ethereum )
-				this.debug( 'using browser' );
-			else
-				this.debug( 'using NETWORK override' );
 
-			//subscribe = true;
+		if( !this.ethersClient || provider !== this.provider ){
 			this.contract = null;
 			this.provider = provider;
-			this.ethersProvider = new window.ethers.providers.Web3Provider( provider, 'any' );
+			//this.ethersClient = new ethers.providers.JsonRpcProvider( provider, 'any' );
+			this.ethersClient = new ethers.providers.Web3Provider( provider, 'any' );
 		}
 
-		if( !this.ethersProvider ){
-			this.warn( 'No web3 provider' );
+		if( !this.ethersClient ){
+			this.warn( 'No ethers provider' );
 			return false;
 		}
+
 
 		if( !this.contract ){
-			//const signer = this.ethersProvider.getSigner();
-			this.contract = new window.ethers.Contract( this.contractAddress, this.contractABI, this.ethersProvider );
-		}
-
-		try{
-			if( !window.ethereum.isConnected() )
-				return false;
-		}
-		catch( err ){
-			this.debug( err )
+			this.ethersSigner = this.ethersClient.getSigner();
+			this.contract = new ethers.Contract( this.contractAddress, this.contractABI, this.ethersSigner );
 		}
 
 
-		//if( subscribe )
-		//  this.subscribe();
-
-
-		if( !(await this.connectChain( deep )) )
+		if( !(await this.connectChain( deep )) ){
 			return false;
+		}
 
-		if( !(await this.connectAccounts( deep )) )
+		if( !(await this.connectAccounts( deep )) ){
 			return false;
+		}
 
+
+		this.clientType = 'ethers';
+		this.wallet.subscribe();
 		return true;
 	}
-*/
+
 
 	async connectWeb3( deep, provider ){
-		//TODO: this.getWeb3Type();
+		var Web3;
 
-		if( !window.Web3 ){
+		if( !Web3 ){
 			try{
-				window.Web3 = require( 'web3' );
+				Web3 = window.Web3;
+				//Web3 = require( 'web3' );
 			}
 			catch( err ){
 				this.error( "'Web3' is undefined and cannot be imported" );
@@ -129,19 +143,24 @@ options: {
 			}
 		}
 
-		if( !provider ){
+
+		if( provider && provider !== window?.ethereum){
+			this.debug( 'using NETWORK override' );
+		}
+		else if( window?.ethereum ){
+			this.debug( 'using browser' );
 			provider = window.ethereum;
 		}
+		else{
+			this.error( "no provider" );
+			return false;
+		}
+
 
 		if( !this.web3client || provider !== this.provider ){
-			if( provider === window.ethereum )
-				this.debug( 'using browser' );
-			else
-				this.debug( 'using NETWORK override' );
-
 			this.contract = null;
 			this.provider = provider;
-			this.web3client = new window.Web3( provider );
+			this.web3client = new Web3( provider );
 		}
 
 		if( !this.web3client ){
@@ -156,15 +175,21 @@ options: {
 		}
 
 
-		if( !(await this.connectChain( deep )) )
+		if( !(await this.connectChain( deep )) ){
 			return false;
+		}
 
-		if( !(await this.connectAccounts( deep )) )
+		if( !(await this.connectAccounts( deep )) ){
 			return false;
+		}
 
+
+		this.clientType = 'web3';
+    this.ethersClient = null;
 		this.wallet.subscribe();
 		return true;
 	}
+
 
 	async connectAccounts( deep ){
 		if( this.hasAccounts() )
@@ -238,16 +263,51 @@ options: {
 		return null;
 	}
 
+	getClient(){
+		if( this.clientType === 'ethers' && this.ethersClient ){
+			return this.ethersClient;
+		}
+		else if( this.clientType === 'web3' && this.web3client){
+			return this.web3client;
+		}
+		else{
+			throw new Error( 'Client is not configured' );
+		}
+	}
+
+	getContract(){
+		if( this.clientType === 'ethers' && this.contract){
+			return this.contract;
+		}
+		else if( this.clientType === 'web3' && this.contract){
+			return this.contract;
+		}
+		else{
+			throw new Error( 'Contract is not configured' );
+		}
+	}
+
 	async getWalletAccounts(){
 		const isAllowed = await this.isWalletAllowed();
 		if( isAllowed !== false ){
-			
 			try{
 				let accounts = [];
-				if( this.web3client )
+				if( this.ethersClient ){
+					try{
+						accounts = await this.ethersClient.listAccounts();
+					}
+					catch( err ){
+						this.warn( 'getWalletAccounts::ethers', err );
+					}
+				}
+
+				if( !accounts?.length && this.web3client ){
 					accounts = await this.web3client.eth.getAccounts();
-				else
-					accounts = await window.ethereum.request({ method: 'eth_accounts' });
+				}
+
+				if( !accounts?.length && this.provider.request ){
+					accounts = await this.provider.request({ method: 'eth_accounts' });
+				}
 
 				return accounts;
 			}
@@ -264,10 +324,25 @@ options: {
 	async getWalletChainID(){
 		try{
 			let chainID;
-			if( this.web3client )
+			if( this.ethersClient ){
+				try{
+					const network = await this.ethersClient.getNetwork();
+					debugger;
+					chainID = network.chainId;
+				}
+				catch( err ){
+  				this.warn( 'getWalletChainID::ethers', err );
+				}
+			}
+
+			if( !chainID && this.web3client ){
 				chainID = await this.web3client.eth.getChainId();
-			else
-				chainID = await window.ethereum.request({ method: 'eth_chainId' });
+			}
+
+			if( !chainID && this.provider.request ){
+				chainID = await this.provider.request({ method: 'eth_chainId' });
+			}
+
 			return chainID;
 		}
 		catch( err ){
@@ -298,19 +373,22 @@ options: {
 
 		if( !this.hasAccounts() )
 			return false;
-		
+
 		return true;
 	}
 
 	async isWalletAllowed(){
 		try{
-			const permissions = await window.ethereum.request({ method: 'wallet_getPermissions' })
-			return permissions.some( p => p.parentCapability === 'eth_accounts' )
+			if( this.provider === window?.ethereum ){
+				const permissions = await this.provider.request({ method: 'wallet_getPermissions' });
+				return permissions.some( p => p.parentCapability === 'eth_accounts' );
+			}			
 		}
 		catch( err ){
 			this.warn( 'isWalletAllowed', err );
-			return null;
 		}
+
+		return null;
 	}
 
 	hasAccounts(){
@@ -320,22 +398,36 @@ options: {
 	//unlock
 	async requestWalletAccounts(){
 		try{
-			let accounts = await this.web3client.eth.getAccounts();
-			if( !(accounts && accounts.length) ){
-				accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+			let accounts = []
+			if( this.ethersClient ){
+				try{
+					accounts = await this.ethersClient.listAccounts();
+				}
+				catch( err ){
+  				this.warn( 'requestWalletAccounts::ethers', err );
+				}
 			}
+
+			if( !accounts?.length && this.web3client ){
+				accounts = await this.web3client.eth.getAccounts();
+			}
+
+			if( !accounts?.length && this.provider.request ){
+				accounts = await this.provider.request({ method: 'eth_requestAccounts' });
+			}
+
 			return accounts
 		}
 		catch( err ){
 			if( err.code === -32002 ){
-				alert( `Help!  Unlock your wallet and try again.` );
+				//alert( `Help!  Unlock your wallet and try again.` );
 			}
 			else if( err.code === 4001 ){
-				alert( `Oops!  No account(s) selected, try again.` );
+				//alert( `Oops!  No account(s) selected, try again.` );
 			}
 			else{
 				this.warn( 'requestWalletAccounts', err );
-				alert( `Oops!  Unknown wallet error, check your wallet and try again.` );
+				//alert( `Oops!  Unknown wallet error, check your wallet and try again.` );
 			}
 			return []
 		}
@@ -343,10 +435,14 @@ options: {
 
 	async setChainID( hexChainID ){
 		try{
-			await window.ethereum.request({
-				method: 'wallet_switchEthereumChain',
-				params: [{ chainId: hexChainID }]
-			});
+      let res;
+			if( this.provider.request ){
+				res = await this.provider.request({
+					method: 'wallet_switchEthereumChain',
+					params: [{ chainId: hexChainID }]
+				});
+			}
+
 			return true;
 		}
 		catch( err ){
@@ -453,8 +549,7 @@ options: {
 					return newError;
 				}
 				catch( innerError ){
-					console.warning( innerError );
-					debugger;
+					this.warn( innerError );
 				}
 			}
 		}
@@ -462,10 +557,10 @@ options: {
 		return err;
 	}
 
-	async createTypedData( primaryType, message, types ){
+	async createTypedData( primaryType, message, types, domainName ){
 		//TODO: require primaryType in types
 
-		const domain = await this.getContractDomain();
+		const domain = await this.getContractDomain( domainName );
 		types.EIP712Domain = [
 			{ name: 'name', type: 'string' },
 			{ name: 'chainId', type: 'uint256' },
@@ -482,19 +577,33 @@ options: {
 		return typedData;
 	}
 	
-	async getContractDomain(){
-		const name = await this.contract.methods.name().call();
-		const domain = {
-			name:                              name,
+	async getContractDomain( domainName ){
+		if( !domainName ){
+			try{
+				const name = await this.contract.methods.name().call();
+				return {
+					name:                              name,
+					version:                            '1',
+					chainId:             this.chain.decimal,
+					verifyingContract: this.contractAddress
+				};
+			}
+			catch( err ){
+				console.error( `Address ${this.contractAddress} does not have "name" function` );
+				this.warn({ err });
+			}
+		}
+
+		return {
+			name:                        domainName,
 			version:                            '1',
 			chainId:             this.chain.decimal,
 			verifyingContract: this.contractAddress
 		};
-		return domain;
 	}
 
-	signTypedData( typedData ){
-		return new Promise(( resolve, reject ) => {
+	async signTypedData( typedData ){
+		try{
 			const signer = this.wallet.accounts[0];
 			const request = {
 				method: 'eth_signTypedData_v4',
@@ -502,23 +611,14 @@ options: {
 				params: [ signer, JSON.stringify( typedData ) ]
 			};
 
-			this.provider.sendAsync( request, ( err, res ) => {
-				try{
-					if( err ){
-						reject( err );
-					}
-					else if( res.error ){
-						reject( res.error );
-					}
-					else{
-						resolve( res.result );
-					}
-				}
-				catch( err ){
-					reject( err );
-				}
-			});
-		});
+			const signature = await provider.request( request );
+			//const signature = await provider.send( request );
+			return signature;
+		}
+		catch( err ){
+			console.warn({ err });
+			throw err;
+		}
 	}
 }
 
@@ -646,6 +746,18 @@ EthereumSession.COMMON_CHAINS = {
 		hex:     '0x13881',
 		rpcURL:  'https://matic-mumbai.chainstacklabs.com/'
 	},
+	11155111: {
+		name:    'Sepolia Testnet',
+		decimal:     11155111,
+		hex:     '0xaa36a7',
+		rpcURL:  'https://sepolia.etherscan.io/'
+	},
+	'0xaa36a7': {
+		name:    'Sepolia Testnet',
+		decimal:     11155111,
+		hex:     '0xaa36a7',
+		rpcURL:  'https://sepolia.etherscan.io/'
+	}
 };
 	
 EthereumSession.IOS_PLATFORMS = [
@@ -687,9 +799,7 @@ class Wallet{
 
 	handleAccountsChanged( accounts ){
 		this.setAccounts( accounts );
-		this.session.provider.once( 'accountsChanged', this.handleAccountsChanged );
-
-		this.trigger( 'accountsChanged', this );
+		this.session.provider.once( 'accountsChanged', this.handleAccountsChanged.bind( this ) );
 	}
 
 	handleChainChanged( chainID ){
@@ -730,9 +840,9 @@ class Wallet{
 			});
 			*/
 
-			if( this.session.provider.once ){
-				this.session.provider.once( 'accountsChanged', this.handleAccountsChanged );
-				this.session.provider.once( 'chainChanged', this.handleChainChanged );
+			if( this.session.provider?.once ){
+			  this.session.provider.once( 'accountsChanged', this.handleAccountsChanged.bind( this ) );
+			  this.session.provider.once( 'chainChanged', this.handleChainChanged.bind( this ) );
 			}
 
 			/*

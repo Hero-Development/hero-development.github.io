@@ -110,28 +110,29 @@ class EthereumDriver{
 				options1559.value = Web3.utils.toWei( value, 'ether' );
 			}
 		}
-		
-		
 
-		const session = this.session;
+
 		const requestDate = new Date();
 		const method = this.session.contract.methods[ name ]( ...args );
 		
 		try{
 			let args;
-			try{
-				const options1559E = Object.assign({}, options1559);
-				args = await method.estimateGas( options1559E );
-			}
-			catch( err ){
-				if( err.code && err.code === -32602 ){
-					const optionsType1 = Object.assign({}, options1559);
-					optionsType1.type = '0x1';
-
-					args = await method.estimateGas( optionsType1 );
+			let force = false;
+			if( type === 'estimateGas' || force ){
+				try{
+					const options1559E = Object.assign({}, options1559);
+					args = await method.estimateGas( options1559E );
 				}
-				else
-					throw err
+				catch( err ){
+					if( err.code && err.code === -32602 ){
+						const optionsType1 = Object.assign({}, options1559);
+						optionsType1.type = '0x1';
+
+						args = await method.estimateGas( optionsType1 );
+					}
+					else
+						throw err
+				}
 			}
 
 			if( type !== 'estimateGas' ){
@@ -156,7 +157,7 @@ class EthereumDriver{
 				//gwei
 				let gasPrice = 1
 				if( type === 'estimateGas' ){
-					const tmp = await session.web3client.eth.getGasPrice();
+					const tmp = await this.session.web3client.eth.getGasPrice();
 					gasPrice = Web3.utils.fromWei( `${tmp}`, 'gwei' );
 				}
 
@@ -199,10 +200,19 @@ class EthereumDriver{
 			responseDiv.innerHTML = `${responseDate.getTime()}<br />${responseDate.toISOString()}<hr /><div class="output">${responseData}</div>`;
 		}
 		catch( err ){
+			let responseData;
 			const responseDate = new Date();
 			const error = EthereumSession.getError( err );
+			if( error.code && error.message ){
+				responseData = `${error.code}: ${error.message}`;
+			}
+			else if( err.code && err.message ){
+				responseData = `${err.code}: ${err.message}`;
+			}
+			else{
+				responseData = JSON.stringify( error, null, '  ' );
+			}
 
-			const responseData = JSON.stringify( error, null, '  ' );
 			const responseDiv = form.parentElement.querySelector( 'div.results' );
 			responseDiv.style.color = '#f66';
 			responseDiv.innerHTML = `${responseDate.getTime()}<br />${responseDate.toISOString()}<hr /><div class="output">${responseData}</div>`;
@@ -997,7 +1007,7 @@ class EthereumDriver{
 		const legend = document.createElement( 'legend' );
 		legend.innerText = eventAbi.name;
 
-		//const inputs = [];
+		//TODO: capture non-indexed values, and use client filter
 		const inputs = eventAbi.inputs.map(( input, index ) => {
 			const label = document.createElement( 'label' );
 			label.innerText = `${input.name}: `;
@@ -1009,6 +1019,11 @@ class EthereumDriver{
 			inputEl.placeholder = `${input.name} (${input.type})`;
 			inputEl.className = input.type;
 			inputEl.attributes['data-index'] = index;
+
+			if( !input.indexed ){
+				inputEl.style.background = '#ffddee';
+				inputEl.style.border = '1px solid red';
+			}
 
 			const span = document.createElement( 'span' );
 			span.appendChild( label );

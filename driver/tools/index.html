@@ -138,10 +138,24 @@
 <button id="tokenURI">tokenURI</button>
 <button id="viewStake">viewStake</button>
 <button id="airdrop">airdrop</button>
+<button id="block-scanner">Block Scanner</button>
 <!--
 <button id="accounts">accounts</button>
--->
 
+
+<fieldset>
+	<legend>Block Scanner</legend>
+	<label>From Block:</label> <input id="from-block" name="from-block" type="text" value="14999200" />
+	<label>To Block:</label> <input id="from-block" name="from-block" type="text" value="15005000" />
+	
+	<fieldset>
+		<legend>Transaction Filters</legend>
+		
+		<label>to:</label> starts with <input id="from-address" name="from-address" type="text" />
+		<label>to:</label> ends with <input id="from-address" name="from-address" type="text" />
+	</fieldset>
+</fieldset>
+-->
 <div id="tools-output"></div>
 </div>
 
@@ -160,44 +174,165 @@ window.addEventListener( 'DOMContentLoaded', () => {
 		if( evt && evt.cancelable )
 			evt.preventDefault();
 
-		toolsOut.innerHTML = '';
 
-		const promises = [];
+		const firstBlock = await driver.getFirstBlock();
+		console.info({ firstBlock });
+
+		const subArgs = {};
+		subArgs.address = driver.session.contractAddress;
+		subArgs.fromBlock = firstBlock;
+		subArgs.toBlock   = 'latest';
+
+
+		const eventName = 'Transfer'; //Single';
+		const abi = driver.session.contractABI.find( abi => abi.type === 'event' && abi.name === eventName );
+		const topic0 = driver.session.web3client.eth.abi.encodeEventSignature( abi );
+		subArgs.topics = [
+			topic0,
+			//null,
+			//"0x0000000000000000000000000000000000000000000000000000000000000000"
+			//from
+			//to
+			//tokenId
+		];
+
+		//max of 4 topics
+
+
+		//TODO: progress % from blocks
 		const wallets = {};
-		const totalSupply = await driver.session.contract.methods.totalSupply().call();
-		for( let tokenId = 0; tokenId < parseInt( totalSupply ); ++tokenId ){
-			const promise = new Promise(async ( resolve, reject ) => {
-					let lastErr = null;
-					for( let i = 0; i < 3; ++i ){
-							try{
-									const owner = await driver.session.contract.methods.ownerOf( tokenId ).call();
-									resolve([ tokenId, owner ]);
-									return;
-							}
-							catch( err ){
-									lastErr = err;
-							}
+		let blocks = 0, calls = 0, step = 10000;
+		const lastBlock = await driver.getLastBlock();
+		subArgs.toBlock = Math.min( subArgs.fromBlock + step - 1, lastBlock );
+		while( subArgs.fromBlock <= subArgs.toBlock ){
+			console.info( `Checking blocks: ${subArgs.fromBlock} - ${subArgs.toBlock}...` );
+
+			blocks += subArgs.toBlock - subArgs.fromBlock + 1;
+
+			let logs;
+			while( true ){
+				try{
+					++calls;
+					logs = (await driver.session.contract.getPastEvents( eventName, subArgs )) || [];
+					console.info( `...success: ${logs.length} logs` );
+					console.info( `...first log: ${logs[0].blockNumber}, last log: ${logs[logs.length-1].blockNumber}` );
+					break;
+				}
+				catch( err ){
+					if( err.code === -32005 ){
+						step = Math.round( step / 2 );
+						subArgs.toBlock = Math.min( subArgs.fromBlock + step - 1, lastBlock );
+						console.warn( `...reduce query to ${step}` );
 					}
-					reject( lastErr );
-			});
+					else{
+						const ethErr = EthereumSession.getError( err );
+						debugger;
+					}					
+				}
+			}
 
-			promise.then(([ tokenId, owner ]) => {
-				toolsOut.innerHTML = '';
-				if( owner in wallets )
-					wallets[ owner ].push( tokenId );
-				else
-					wallets[ owner ] = [ tokenId ];
-			});
 
-			promises.push( promise );
-    };
-		await Promise.all( promises );
+			//TODO:
+			//status:  searched ${blocks} blocks, found ${results.length} events
+			step *= 2;
+			subArgs.fromBlock = subArgs.toBlock + 1;
+			subArgs.toBlock = Math.min( subArgs.fromBlock + step - 1, lastBlock );
 
-		let output = '';
-		for( let [ key, tokenIds ] of Object.entries( wallets ) ){
-			output += `${key}\t${tokenIds.length}<br />\n`;
+
+
+			if( logs ){
+				//logs = logs.filter( l => l.returnValues.id == 0 );
+			
+				//let operator, quantity;
+				for( let log of logs ){
+					if( eventName === 'Transfer' ){
+						const from = log.returnValues[0];
+						const to = log.returnValues[1];
+						const tokenId = BigInt( log.returnValues[2] );
+
+						if( from !== "0x0000000000000000000000000000000000000000" ){
+							if( wallets[ from ] ){
+								const at = wallets[ from ].indexOf( tokenId );
+								if( at > -1 ){
+									if( wallets[ from ].length === 1 )
+										delete wallets[ from ];
+									else
+										wallets[ from ].splice( at, 1 );
+								}
+							}
+							else{
+								debugger;
+							}
+						}
+
+						if( to !== "0x0000000000000000000000000000000000000000" ){
+							if( wallets[ to ] )
+								wallets[ to ].push( tokenId );
+							else
+								wallets[ to ] = [ tokenId ];
+						}
+					}
+					else if( eventName === 'TransferSingle' ){
+						//operator = log.returnValues[0];
+						from = log.returnValues[1];
+						to = log.returnValues[2];
+						tokenId = log.returnValues[3];
+						//quantity = parseInt( log.returnValues[4] );
+
+						if( from !== "0x0000000000000000000000000000000000000000" ){
+							if( wallets[ from ] === quantity ){
+								delete wallets[ from ];
+							}
+							else{
+								wallets[ from ] -= quantity;
+							}
+							
+							if( to !== "0x0000000000000000000000000000000000000000" ){
+								if( !wallets[ to ] )
+									wallets[ to ] = 0
+
+								wallets[ to ] += quantity;
+							}
+						}
+					}
+				}
+			}
+
+			//status:  searched ${blocks} blocks, found ${results.length} events
 		}
-		document.getElementById( 'tools-output' ).innerHTML = output;
+		const entries = Object.entries( wallets );
+		console.info( `Token check complete: ${entries.length} wallets, ${calls} calls ` );
+
+
+		let table = '<table><tbody>';
+		let csvString = "Index,Account,Balance,Tokens\n";
+		for( let i = 0; i < entries.length; ++i ){
+			if( eventName === 'Transfer' ){
+				let [ key, tokenIds ] = entries[i];
+				tokenIds.sort(( x, y) => {
+					if( x < y )
+						return -1;
+
+					if( x > y )
+						return 1;
+
+					return 0;
+				});
+
+				const tokenStr = tokenIds.join(', ');
+				csvString += `${i},${key},${tokenIds.length},"${tokenStr}"\n`;
+				table += '<tr><td>'+ i +'</td><td>'+ key +'</td><td>'+ tokenIds.length +'</td><td>'+ tokenStr +'</td></tr>';
+			}
+			else if( eventName === 'TransferSingle' ){
+				let [ key, quantity ] = entries[i];
+				table += '<tr><td>'+ i +'</td><td>'+ key +'</td><td>'+ quantity +'</td></tr>';
+			}
+		}
+		table += '</tbody></table>';
+
+		document.getElementById( 'tools-output' ).innerHTML = ''+
+			'<a download="balanceOf.csv" id="download-link" href="data:text/csv;charset=utf-8,'+ encodeURI( csvString ) +'+" target="_blank">Download</a><br />'+
+			table;
 	});
 
 
@@ -206,10 +341,10 @@ window.addEventListener( 'DOMContentLoaded', () => {
 			evt.preventDefault();
 
 		
-		//const quantities = {};
-		const totalSupply = await driver.session.contract.methods.totalSupply().call();
-		for( let i = 0; i <= parseInt( totalSupply ); ++i ){
-		
+		const totalSupply = 9000;
+		//const totalSupply = await driver.session.contract.methods.totalSupply().call()
+			//.then( totalSupply => parseInt( totalSupply ) );
+		for( let i = 0; i <= totalSupply; ++i ){
 			for( let j = 0; j < 3; ++j ){
 				try{
 					const owner = await driver.session.contract.methods.ownerOf( i ).call();
@@ -230,6 +365,7 @@ window.addEventListener( 'DOMContentLoaded', () => {
 		}
 	});
 
+
 	document.getElementById( 'tokenURI' ).addEventListener( 'click', async (evt) => {
 		if( evt && evt.cancelable )
 			evt.preventDefault();
@@ -248,47 +384,9 @@ window.addEventListener( 'DOMContentLoaded', () => {
 			}
 		}
 	});
-	
-	
-	
-	document.getElementById( 'viewStake' ).addEventListener( 'click', async (evt) => {
-		if( evt && evt.cancelable )
-			evt.preventDefault();
 
-		
-		//const quantities = {};
-		//const totalSupply = await driver.session.contract.methods.totalSupply().call();
-		for( let i = 0; i <= 10000; ++i ){
-			for( let j = 0; j < 3; ++j ){
-				try{
-					const stake = await driver.session.contract.methods.viewStake( i ).call();
-					const [ owner, contract, tokenId, releaseTime, status ] = stake;
-					if( owner !== '0x0000000000000000000000000000000000000000' ){
-						document.getElementById( 'tools-output' ).innerHTML += `${i}&#9;${owner}\n<br />`
-					}
-					break;
-				}
-				catch( err ){
-					const ethErr = EthereumSession.getError( err );
-					if( ethErr.message.includes( 'nonexistent' ) ){
-						document.getElementById( 'tools-output' ).innerHTML += `${i}\n<br />`
-						break;
-					}
-					else{
-						console.error({ err });
-					}
-				}
-			}
-		}
-	});
 
 /*
-	const airdrops = [
-		"0x102DD33ef3c1af8736EDdCc30985fEB69e099cD8",
-		"0x086ad30A0fF0e544EF6c81d56BbbdD5dBE3e11F1",
-		"0x067872abb9A5Ebb9435bedc994d5e276b82C2E00"
-	];
-*/
 	document.getElementById( 'accounts' ).addEventListener( 'click', async (evt) => {
 		if( evt && evt.cancelable )
 			evt.preventDefault();
@@ -307,6 +405,19 @@ window.addEventListener( 'DOMContentLoaded', () => {
 
 		console.table( counts );
 	});
+	*/
+
+const airdrops = [
+  "0xA1302a40EB5BD3e81c521C101d85fe6034335962",
+  "0xB9c524ee9476A8f559561384a41bb68A7461d5d0",
+  "0xEe095D8C0986Bd3729A04812cCdE0E42F0103055",
+  "0x26f24ed4CdCC837CC31fC6a6D42748643a5a5CE5",
+  "0xf85143473b3aB2e6cFD436D7Ae20959C2ecC3Ea7",
+  "0xe8D6c9f9ad3E7db3545CF15DeF74A2072F30e1Cb",
+  "0xE0DA98D99eD92876c59b0DE3f0c36D405D421178",
+  "0x68c2984cD6D59492E6d83A5d63099f4DF719ed7C"
+];
+
 
 	document.getElementById( 'airdrop' ).addEventListener( 'click', async (evt) => {
 		if( evt && evt.cancelable )
@@ -314,22 +425,105 @@ window.addEventListener( 'DOMContentLoaded', () => {
 
 		const account = driver.session.wallet.accounts[0];
 		while( airdrops.length ){
-			const size = Math.min( airdrops.length, 100 );
+			const size = Math.min( airdrops.length, 200 );
 			const batch = airdrops.splice( 0, size );
-			const ids = batch.map( _ => 0 );
-			const quantities = batch.map( _ => 1 );
+			const ids = batch.map( _ => "1" );
+			const quantities = batch.map( _ => "1" );
 			
 			const args = {
 				from: account,
-				gasPrice:             35_000_000_000,
-				maxPriorityFeePerGas: 45_000_000_000,
+				maxPriorityFeePerGas: "37000000000",
+				maxFeePerGas:         "45000000000",
 			}
 
 			console.info({ sending: batch.length });
-			await driver.session.contract.methods.mintTo( batch, ids, quantities ).send( args );
-			console.info({ airdrops: airdrops.length });
+			try{
+				await driver.session.contract.methods.mintTo( 1, quantities, batch ).estimateGas( args );
+				await driver.session.contract.methods.mintTo( 1, quantities, batch ).send( args );
+				console.info({ airdrops: airdrops.length });
+			}
+			catch( err ){
+				console.info({ err });
+			}
 		}
 	});
+	
+	document.getElementById( 'block-scanner' ).addEventListener( 'click', async () => {
+		try{
+			const web3 = new Web3( window.ethereum );
+
+			
+			//15003000 
+			for( let i = 14999200; i <= 15005000; ++i ){
+				const block = await web3.eth.getBlock( i, true );
+				document.getElementById( 'tools-output' ).innerHTML += `Block ${i} has ${block.transactions.length} transactions<br />`;
+				for( let txn of block.transactions ){
+					if( txn.to ){
+						const prefix = txn.to.substring( 0, 7 ).toLowerCase();
+						//         0x00000............................9ede581
+						//Seaport: 0x00000000006c3852cbEf3e08E8dF289169EdE581
+						//         0x5b9d7............................58bf117
+						//BTF:     0x5b9D7Ee3Ba252c41a07C2D6Ec799eFF8858bf117
+						//         0xdbc82............................e961e8b
+						//Wallet:  0xdBc82B093C570fdb7a69E3ECb657800Bae6d93D4
+
+						if( [ '0xdbc82', '0x17640' ].includes( prefix ) ){
+							console.info( `Prefix matches: ${txn.to}` );
+
+							const suffix = txn.to.substring( 35 ).toLowerCase();
+							if( [ 'e961e8b', 'f023f60' ].includes( suffix ) ){
+								console.info( `Suffix matches: ${txn.to}` );
+								document.getElementById( 'tools-output' ).innerHTML += '<hr />Block: '+ i +'<br />'+ JSON.stringify( txn, null, 2 ) +'<hr /><br />';
+							}
+						}
+					}
+				}
+			}
+		}
+		catch( err ){
+			console.warn({ err });
+			alert( err );
+		}
+	});
+
+
+
+		/*
+		const totalSupply = await driver.session.contract.methods.totalSupply().call()
+			.then( totalSupply => parseInt( totalSupply ) );
+
+
+
+		let startId;
+		for( startId = 0; startId < totalSupply; ++startId ){
+			try{
+				const owner = await driver.session.contract.methods.ownerOf( startId ).call();
+				if( owner !== '0x0000000000000000000000000000000000000000' )
+					break;
+			}
+			catch( err ){
+				const ethErr = EthereumSession.getError( err );
+				console.warn({ ethErr });
+			}
+		}
+
+
+		let endId;
+		for( endId = totalSupply; endId <= startId + totalSupply; ++endId ){
+			try{
+				const owner = await driver.session.contract.methods.ownerOf( endId ).call();
+				if( owner === '0x0000000000000000000000000000000000000000' ){
+					debugger;
+					break;
+				}
+			}
+			catch( err ){
+				const ethErr = EthereumSession.getError( err );
+				console.warn({ ethErr });
+				debugger;
+			}
+		}
+		*/
 });
 </script>
 </body>
