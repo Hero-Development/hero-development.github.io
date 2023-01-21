@@ -203,6 +203,9 @@ class EthereumDriver{
 			let responseData;
 			const responseDate = new Date();
 			const error = EthereumSession.getError( err );
+			if(error.data && this.session.errors[error.data])
+				error.message = this.session.errors[error.data].name;
+
 			if( error.code && error.message ){
 				responseData = `${error.code}: ${error.message}`;
 			}
@@ -557,7 +560,7 @@ class EthereumDriver{
 			let address;
 			const link = EthereumDriver.getEtherscanLink( contract.chainID, contract.address );
 			if( link ){
-				address = `${contract.address}&nbsp;<small><a href="${link}" target="_blank" rel="noreferer">&#x2197;</a></small>`;
+				address = `${contract.address}<small style="margin-left: 1em;"><a href="${link}" target="_blank" rel="noreferer">&#x2197;</a></small>`;
 			}
 			else{
 				address = contract.address;
@@ -884,7 +887,11 @@ class EthereumDriver{
 		}
 		catch( err ){
 			this.session.warn( err );
-			document.getElementById( 'contract-header' ).querySelector( '.name' ).innerText = '(unknown)';
+			
+			const address = this.session.contractAddress;
+			const pre = address.substring(0, 6);
+			const post = address.substring(address.length - 4);
+			document.getElementById( 'contract-header' ).querySelector( '.name' ).innerText = `${pre}...${post}`;
 		}
 
 
@@ -1488,17 +1495,11 @@ class EthereumDriver{
 	};
 
 	static getEtherscanLink( chainID, address ){
-		switch( chainID ){
-			case '1':
-				return `https://etherscan.io/address/${address}`;
-
-			case '4':
-				return `https://rinkeby.etherscan.io/address/${address}`;
-
-			case '137':
-				return `https://polygonscan.com/address/${address}`;
+		if(chainID in EthereumSession.COMMON_CHAINS
+			&& EthereumSession.COMMON_CHAINS[chainID].explorer){
+			return `${EthereumSession.COMMON_CHAINS[chainID].explorer}/address/${address}`;
 		}
-		
+
 		return null;
 	}
 }

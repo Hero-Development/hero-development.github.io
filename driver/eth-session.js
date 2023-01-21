@@ -3,6 +3,7 @@ class EthereumSession{
 	chain           = null;
 	contractAddress = null;
 	contractABI     = null;
+	errors          = {};
 	wallet          = null;
 
 	contract        = null;
@@ -18,6 +19,16 @@ class EthereumSession{
 		this.contractAddress = args.contractAddress;
 		this.contractABI = args.contractABI;
 		this.wallet = new Wallet( this );
+
+		if( args.contractABI ){
+			const tmp = new Web3();
+			const abi = args.contractABI
+				.filter( abi => abi.type === 'error' )
+				.forEach( abi => {
+					const key = tmp.eth.abi.encodeFunctionSignature( `${abi.name}()` );
+					this.errors[ key ] = abi;
+				});
+		}
 	}
 
 /*
@@ -65,7 +76,6 @@ options: {
 			return false;
 		}
 	}
-
 
 	async connectEthers( deep, provider ){
 		var ethers;
@@ -128,7 +138,6 @@ options: {
 		return true;
 	}
 
-
 	async connectWeb3( deep, provider ){
 		var Web3;
 
@@ -189,7 +198,6 @@ options: {
 		this.wallet.subscribe();
 		return true;
 	}
-
 
 	async connectAccounts( deep ){
 		if( this.hasAccounts() )
@@ -608,10 +616,10 @@ options: {
 			const request = {
 				method: 'eth_signTypedData_v4',
 				from:   signer,
-				params: [ signer, JSON.stringify( typedData ) ]
+				params: [ signer.toLowerCase(), JSON.stringify( typedData ) ]
 			};
 
-			const signature = await provider.request( request );
+			const signature = await this.provider.request( request );
 			//const signature = await provider.send( request );
 			return signature;
 		}
@@ -639,13 +647,15 @@ EthereumSession.COMMON_CHAINS = {
 		name:    'Ropsten Testnet',
 		decimal:    3,
 		hex:     '0x3',
-		rpcURL:  'https://ropsten.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161'
+		rpcURL:  'https://ropsten.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161',
+		explorer: 'https://ropsten.etherscan.io'
 	},
 	'0x3': {
 		name:    'Ropsten Testnet',
 		decimal:    3,
 		hex:     '0x3',
-		rpcURL:  'https://ropsten.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161'
+		rpcURL:  'https://ropsten.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161',
+		explorer: 'https://ropsten.etherscan.io'
 	},
 	4: {
 		name:    'Rinkeby Testnet',
@@ -665,13 +675,15 @@ EthereumSession.COMMON_CHAINS = {
 		name:    'Goerli Testnet',
 		decimal:    5,
 		hex:     '0x5',
-		rpcURL:  'https://goerli.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161'
+		rpcURL:  'https://goerli.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161',
+		explorer: 'https://goerli.etherscan.io'
 	},
 	'0x5': {
 		name:    'Goerli Testnet',
 		decimal:    5,
 		hex:     '0x5',
-		rpcURL:  'https://goerli.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161'
+		rpcURL:  'https://goerli.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161',
+		explorer: 'https://goerli.etherscan.io'
 	},
 	42: {
 		name:    'Kovan Testnet',
@@ -701,25 +713,29 @@ EthereumSession.COMMON_CHAINS = {
 		name:    'Binance Testnet',
 		decimal:    97,
 		hex:     '0x57',
-		rpcURL:  'https://data-seed-prebsc-1-s1.binance.org:8545/'
+		rpcURL:  'https://data-seed-prebsc-1-s1.binance.org:8545/',
+		explorer: 'https://testnet.bscscan.com/'
 	},
 	'0x57': {
 		name:    'Binance Testnet',
 		decimal:    97,
 		hex:     '0x57',
-		rpcURL:  'https://data-seed-prebsc-1-s1.binance.org:8545/'
+		rpcURL:  'https://data-seed-prebsc-1-s1.binance.org:8545/',
+		explorer: 'https://testnet.bscscan.com/'
 	},
 	137: {
 		name:    'Polygon (Matic)',
 		decimal:    137,
 		hex:     '0x89',
-		rpcURL:  'https://polygonscan.com/'
+		rpcURL:  'https://polygonscan.com/',
+		explorer:  'https://polygonscan.com/'
 	},
 	'0x89': {
 		name:    'Polygon (Matic)',
 		decimal:    137,
 		hex:     '0x89',
-		rpcURL:  'https://polygonscan.com/'
+		rpcURL:  'https://polygonscan.com/',
+		explorer:  'https://polygonscan.com/'
 	},
 
 	71401: {
@@ -750,13 +766,15 @@ EthereumSession.COMMON_CHAINS = {
 		name:    'Sepolia Testnet',
 		decimal:     11155111,
 		hex:     '0xaa36a7',
-		rpcURL:  'https://sepolia.etherscan.io/'
+		rpcURL:  'https://sepolia.etherscan.io/',
+		explorer: 'https://sepolia.etherscan.io'
 	},
 	'0xaa36a7': {
 		name:    'Sepolia Testnet',
 		decimal:     11155111,
 		hex:     '0xaa36a7',
-		rpcURL:  'https://sepolia.etherscan.io/'
+		rpcURL:  'https://sepolia.etherscan.io/',
+		explorer: 'https://sepolia.etherscan.io'
 	}
 };
 	
