@@ -1264,10 +1264,17 @@ class EthereumDriver{
 		try{
 			const json = localStorage.getItem( 'EthereumDriver.contracts' );
 			const contractKey = `${chainID}-${address}`;
-			const contracts = json ? JSON.parse( json ) : {};
-			if( contractKey in contracts && !confirm( `Contract ${address} already exists.  Overwrite?` ) )
+			let contracts = json ? JSON.parse( json ) : {};
+			if(Array.isArray(contracts)){
+				const newContracts = {}
+				contracts.forEach(c => {
+					newContracts[`${c.chainID}-${c.address}`] = c;
+				});
+				contracts = newContracts;
+			}
+			
+			if(contractKey in contracts && !confirm( `Contract ${address} already exists.  Overwrite?` ))
 					return;
-
 
 			
 			const contractData = {
