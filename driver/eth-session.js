@@ -25,7 +25,7 @@ class EthereumSession{
 			const abi = args.contractABI
 				.filter( abi => abi.type === 'error' )
 				.forEach( abi => {
-					const key = tmp.eth.abi.encodeFunctionSignature( `${abi.name}()` );
+					const key = tmp.eth.abi.encodeFunctionSignature(abi);
 					this.errors[ key ] = abi;
 				});
 		}

@@ -203,8 +203,23 @@ class EthereumDriver{
 			let responseData;
 			const responseDate = new Date();
 			const error = EthereumSession.getError( err );
-			if(error.data && this.session.errors[error.data])
-				error.message = this.session.errors[error.data].name;
+			if(error.data){
+				const selector = error.data.substring(0, 10);
+				const abi = this.session.errors[selector];
+				if(abi.inputs?.length){
+					const args = error.data.substring(10);
+					const decoded = this.session.web3client.eth.abi.decodeParameters(abi.inputs, args);
+					
+					const params = [];
+					for(let i = 0; i < abi.inputs.length; ++i){
+						params.push(decoded[i]);
+					}
+					error.message = abi.name +'('+ params.join(', ') +')';
+				}
+				else{
+					error.message = abi.name;
+				}
+			}
 
 			if( error.code && error.message ){
 				responseData = `${error.code}: ${error.message}`;
@@ -394,52 +409,57 @@ class EthereumDriver{
 	}
 
 	async load( chainID, address, abiJson, save ){
-		let chain;
-		if( chainID in EthereumSession.COMMON_CHAINS ){
-			chain = EthereumSession.COMMON_CHAINS[ chainID ];
-		}
-		else{
-			alert( `Unsupported network: ${chainID}` );
-			return;
-		}
-
-		
 		try{
-			address = Web3.utils.toChecksumAddress( address.trim() );
+			let chain;
+			if( chainID in EthereumSession.COMMON_CHAINS ){
+				chain = EthereumSession.COMMON_CHAINS[ chainID ];
+			}
+			else{
+				alert( `Unsupported network: ${chainID}` );
+				return;
+			}
+
+			
+			try{
+				address = Web3.utils.toChecksumAddress( address.trim() );
+			}
+			catch( err ){
+				alert( err );
+				debugger;
+			}
+
+
+			let abi;
+			try{
+				abi = JSON.parse( abiJson.trim() );
+			}
+			catch( err ){
+				alert( `Invalid ABI JSON` );
+				return;
+			}
+
+			this.session = new EthereumSession({
+				chain:           chain,
+				contractAddress: address,
+				contractABI:     abi
+			});
+
+			await this.session.connectWeb3( true, this.getProvider() );
+			if( save ){
+				this.saveContract( chainID, address, JSON.stringify( abi ) );
+			}
+
+			await this.renderAll();
+			this.showConfig( false );
+			EthereumDriver.filter( this.configFilters );
+
+			const contractEl = document.getElementById( 'contract' );
+			if( contractEl ){
+				contractEl.style.display = 'block';
+			}
 		}
-		catch( err ){
-			alert( err );
-			debugger;
-		}
-
-
-		let abi;
-		try{
-			abi = JSON.parse( abiJson.trim() );
-		}
-		catch( err ){
-			alert( `Invalid ABI JSON` );
-			return;
-		}
-
-		this.session = new EthereumSession({
-			chain:           chain,
-			contractAddress: address,
-			contractABI:     abi
-		});
-
-		await this.session.connectWeb3( true, this.getProvider() );
-		if( save ){
-			this.saveContract( chainID, address, JSON.stringify( abi ) );
-		}
-
-		await this.renderAll();
-		this.showConfig( false );
-		EthereumDriver.filter( this.configFilters );
-
-		const contractEl = document.getElementById( 'contract' );
-		if( contractEl ){
-			contractEl.style.display = 'block';
+		catch(err){
+			console.warn({ err });
 		}
 	}
 
