@@ -738,6 +738,21 @@ EthereumSession.COMMON_CHAINS = {
 		explorer:  'https://polygonscan.com/'
 	},
 
+	31337: {
+		name:     'DevNet',
+		decimal:     31337,
+		hex:      '0x7a69',
+		rpcURL:   'http://127.0.0.1:8545/',
+		//explorer: ''
+	},
+	'0x7a69': {
+		name:    'DevNet',
+		decimal:    31337,
+		hex:     '0x7a69',
+		rpcURL:  'http://127.0.0.1:8545/',
+		//explorer: ''
+	},
+
 	71401: {
 		name:    'Nervos Testnet',
 		decimal:  71401,
