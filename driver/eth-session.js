@@ -61,11 +61,25 @@ options: {
 
 	async addChain( chain ){
 		try{
-      let res;
+			let res;
 			if( this.provider.request ){
-        res = await this.provider.request({
+				const newChain = {
+					'chainId':   chain.chainId,
+					'chainName': chain.chainName,
+					'rpcUrls':   chain.rpcUrls
+				};
+
+				if(chain.blockExplorerUrls){
+					newChain.blockExplorerUrls = chain.blockExplorerUrls;
+				}
+
+				if(chain.nativeCurrency){
+					newChain.nativeCurrency = chain.nativeCurrency;
+				}
+
+				res = await this.provider.request({
 					method: 'wallet_addEthereumChain',
-					params: [{ 'chainId': chain.hex, 'rpcUrls': chain.rpcURL }]
+					params: [newChain]
 				});
 			}
 
@@ -235,7 +249,7 @@ options: {
 
 
 		if( deep ){
-			if( await this.setChainID( this.chain.hex ) ){
+			if( await this.setChainID( this.chain.chainId ) ){
 				chainID = await this.getWalletChainID();
 				this.wallet.setChain( EthereumSession.getChain( chainID ) );
 				return this.isChainConnected();
@@ -247,7 +261,7 @@ options: {
 				if( this.isChainConnected() )
 					return true;
 
-				if( await this.setChainID( this.chain.hex ) ){
+				if( await this.setChainID( this.chain.chainId ) ){
 					chainID = await this.getWalletChainID();
 					this.wallet.setChain( EthereumSession.getChain( chainID ) );
 					return this.isChainConnected();
@@ -335,7 +349,6 @@ options: {
 			if( this.ethersClient ){
 				try{
 					const network = await this.ethersClient.getNetwork();
-					debugger;
 					chainID = network.chainId;
 				}
 				catch( err ){
@@ -546,7 +559,21 @@ options: {
 						}
 					}
 					else{
-						if( unwrapped.message === newError.message ){
+						if(newError.message === "Internal JSON-RPC error."){
+							if(typeof unwrapped.data === 'object'){
+								newError = new Error(unwrapped.data.message);
+								newError.data = unwrapped.data.data;
+								if(unwrapped.code)
+									newError.code = unwrapped.code;
+							}
+							else{
+								newError = new Error(unwrapped.message);
+								newError.data = unwrapped.data;
+								if(unwrapped.code)
+									newError.code = unwrapped.code;
+							}
+						}
+						else if( unwrapped.message === newError.message ){
 							newError = unwrapped;
 						}
 						else{
@@ -557,7 +584,7 @@ options: {
 					return newError;
 				}
 				catch( innerError ){
-					this.warn( innerError );
+					console.warn( innerError );
 				}
 			}
 		}
@@ -630,177 +657,207 @@ options: {
 	}
 }
 
-EthereumSession.COMMON_CHAINS = {
-	1: {
-		name:    'Ethereum Mainnet',
-		decimal:    1,
-		hex:     '0x1',
-		explorer: 'https://etherscan.io'
-	},
-	'0x1': {
-		name:    'Ethereum Mainnet',
-		decimal:    1,
-		hex:     '0x1',
-		explorer: 'https://etherscan.io'
-	},
-	3: {
-		name:    'Ropsten Testnet',
-		decimal:    3,
-		hex:     '0x3',
-		rpcURL:  'https://ropsten.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161',
-		explorer: 'https://ropsten.etherscan.io'
-	},
-	'0x3': {
-		name:    'Ropsten Testnet',
-		decimal:    3,
-		hex:     '0x3',
-		rpcURL:  'https://ropsten.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161',
-		explorer: 'https://ropsten.etherscan.io'
-	},
-	4: {
-		name:    'Rinkeby Testnet',
-		decimal:    4,
-		hex:     '0x4',
-		rpcURL:  'https://rinkeby.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161',
-		explorer: 'https://rinkeby.etherscan.io'
-	},
-	'0x4': {
-		name:    'Rinkeby Testnet',
-		decimal:    4,
-		hex:     '0x4',
-		rpcURL:  'https://rinkeby.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161',
-		explorer: 'https://rinkeby.etherscan.io'
-	},
-	5: {
-		name:    'Goerli Testnet',
-		decimal:    5,
-		hex:     '0x5',
-		rpcURL:  'https://goerli.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161',
-		explorer: 'https://goerli.etherscan.io'
-	},
-	'0x5': {
-		name:    'Goerli Testnet',
-		decimal:    5,
-		hex:     '0x5',
-		rpcURL:  'https://goerli.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161',
-		explorer: 'https://goerli.etherscan.io'
-	},
-	42: {
-		name:    'Kovan Testnet',
-		decimal:    42,
-		hex:     '0x2a',
-		rpcURL:  'https://kovan.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161'
-	},
-	'0x2a': {
-		name:    'Kovan Testnet',
-		decimal:    42,
-		hex:     '0x2a',
-		rpcURL:  'https://kovan.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161'
-	},
-	56: {
-		name:    'Binance Mainnet',
-		decimal:    56,
-		hex:     '0x38',
-		rpcURL:  'https://bsc-dataseed.binance.org/'
-	},
-	'0x38': {
-		name:    'Binance Mainnet',
-		decimal:    56,
-		hex:     '0x38',
-		rpcURL:  'https://bsc-dataseed.binance.org/'
-	},
-	97: {
-		name:    'Binance Testnet',
-		decimal:    97,
-		hex:     '0x57',
-		rpcURL:  'https://data-seed-prebsc-1-s1.binance.org:8545/',
-		explorer: 'https://testnet.bscscan.com/'
-	},
-	'0x57': {
-		name:    'Binance Testnet',
-		decimal:    97,
-		hex:     '0x57',
-		rpcURL:  'https://data-seed-prebsc-1-s1.binance.org:8545/',
-		explorer: 'https://testnet.bscscan.com/'
-	},
-	137: {
-		name:    'Polygon (Matic)',
-		decimal:    137,
-		hex:     '0x89',
-		rpcURL:  'https://polygonscan.com/',
-		explorer:  'https://polygonscan.com/'
-	},
-	'0x89': {
-		name:    'Polygon (Matic)',
-		decimal:    137,
-		hex:     '0x89',
-		rpcURL:  'https://polygonscan.com/',
-		explorer:  'https://polygonscan.com/'
-	},
 
-	31337: {
-		name:     'DevNet',
-		decimal:     31337,
-		hex:      '0x7a69',
-		rpcURL:   'http://127.0.0.1:8545/',
-		//explorer: ''
-	},
-	'0x7a69': {
-		name:    'DevNet',
-		decimal:    31337,
-		hex:     '0x7a69',
-		rpcURL:  'http://127.0.0.1:8545/',
-		//explorer: ''
-	},
 
-	71401: {
-		name:    'Nervos Testnet',
-		decimal:  71401,
-		hex:     '0x116e9',
-		rpcURL:  'https://godwoken-testnet-v1.ckbapp.dev'
-	},
-	'0x116e9': {
-		name:    'Nervos Testnet',
-		decimal:  71401,
-		hex:     '0x116e9',
-		rpcURL:  'https://godwoken-testnet-v1.ckbapp.dev'
-	},
-	80001: {
-		name:    'Polygon Mumbai Testnet',
-		decimal:     80001,
-		hex:     '0x13881',
-		rpcURL:  'https://matic-mumbai.chainstacklabs.com/'
-	},
-	'0x13881': {
-		name:    'Polygon Mumbai Testnet',
-		decimal:     80001,
-		hex:     '0x13881',
-		rpcURL:  'https://matic-mumbai.chainstacklabs.com/'
-	},
-	11155111: {
-		name:    'Sepolia Testnet',
-		decimal:     11155111,
-		hex:     '0xaa36a7',
-		rpcURL:  'https://sepolia.etherscan.io/',
-		explorer: 'https://sepolia.etherscan.io'
-	},
-	'0xaa36a7': {
-		name:    'Sepolia Testnet',
-		decimal:     11155111,
-		hex:     '0xaa36a7',
-		rpcURL:  'https://sepolia.etherscan.io/',
-		explorer: 'https://sepolia.etherscan.io'
+
+/*
+chainId - The chain ID as a 0x-prefixed hexadecimal string.
+chainName - The name of the chain.
+rpcUrls - An array of RPC URL strings. At least one item is required, and only the first item is used.
+blockExplorerUrls (optional) - An array of block blockExplorerUrls URL strings. At least one item is required, and only the first item is used.
+nativeCurrency - An object containing:
+	name - The name of the currency.
+	symbol - The symbol of the currency, as a 2-6 character string.
+	decimals - The number of decimals of the currency. Currently only accepts 18.
+iconUrls (optional, currently ignored) - An array of icon URL strings.
+*/
+
+
+
+EthereumSession.COMMON_CHAINS = {};
+EthereumSession.COMMON_CHAINS[1] = {
+	chainName: 'Ethereum Mainnet',
+	chainId:   '0x1',
+	decimal:      1,
+	blockExplorerUrls: [
+		'https://etherscan.io'
+	],
+	nativeCurrency: {
+		"name":"Ether",
+		"symbol":"ETH",
+		"decimals":18
 	}
 };
-	
-EthereumSession.IOS_PLATFORMS = [
-	'iPad Simulator',
-	'iPhone Simulator',
-	'iPod Simulator',
-	'iPad',
-	'iPhone',
-	'iPod'
-];
+EthereumSession.COMMON_CHAINS['0x1'] = EthereumSession.COMMON_CHAINS[1];
+
+
+EthereumSession.COMMON_CHAINS[3] = {
+	chainName: 'Ropsten Testnet',
+	chainId:   '0x3',
+	decimal:      3,
+	rpcUrls: [
+		'https://ropsten.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161',
+	],
+	blockExplorerUrls: [
+		'https://ropsten.etherscan.io'
+	]
+};
+EthereumSession.COMMON_CHAINS['0x3'] = EthereumSession.COMMON_CHAINS[3];
+
+
+EthereumSession.COMMON_CHAINS[4] = {
+	chainName: 'Rinkeby Testnet',
+	chainId:   '0x4',
+	decimal:      4,
+	rpcUrls: [
+		'https://rinkeby.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161',
+	],
+	blockExplorerUrls: [
+		'https://rinkeby.etherscan.io'
+	]
+};
+EthereumSession.COMMON_CHAINS['0x4'] = EthereumSession.COMMON_CHAINS[4];
+
+
+EthereumSession.COMMON_CHAINS[5] = {
+	chainName: 'Goerli Testnet',
+	chainId:   '0x5',
+	decimal:      5,
+	rpcUrls: [
+		'https://goerli.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161',
+	],
+	blockExplorerUrls: [
+		'https://goerli.etherscan.io'
+	]
+};
+EthereumSession.COMMON_CHAINS['0x5'] = EthereumSession.COMMON_CHAINS[5];
+
+
+EthereumSession.COMMON_CHAINS[42] = {
+	chainName: 'Kovan Testnet',
+	chainId:   '0x2a',
+	decimal:      42,
+	rpcUrls: [
+		'https://kovan.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161'
+	],
+};
+EthereumSession.COMMON_CHAINS['0x2a'] = EthereumSession.COMMON_CHAINS[42];
+
+
+EthereumSession.COMMON_CHAINS[56] = {
+	chainName: 'Binance Mainnet',
+	chainId:   '0x38',
+	decimal:      56,
+	rpcUrls: [
+		'https://bsc-dataseed.binance.org/'
+	],
+};
+EthereumSession.COMMON_CHAINS['0x38'] = EthereumSession.COMMON_CHAINS[56];
+
+
+EthereumSession.COMMON_CHAINS[97] = {
+	chainName: 'Binance Testnet',
+	chainId:   '0x57',
+	decimal:      97,
+	rpcUrls: [
+		'https://data-seed-prebsc-1-s1.binance.org:8545/',
+	],
+	blockExplorerUrls: [
+		'https://testnet.bscscan.com/'
+	]
+};
+EthereumSession.COMMON_CHAINS['0x57'] = EthereumSession.COMMON_CHAINS[97];
+
+
+EthereumSession.COMMON_CHAINS[137] = {
+	chainName: 'Polygon (Matic)',
+	chainId:   '0x89',
+	decimal:     137,
+	rpcUrls: [
+		'https://polygonscan.com/',
+	],
+	blockExplorerUrls:  [
+		'https://polygonscan.com/'
+	]
+};
+EthereumSession.COMMON_CHAINS['0x89'] = EthereumSession.COMMON_CHAINS[97];
+
+
+EthereumSession.COMMON_CHAINS[160000] = {
+	chainName: 'FoolProof DevNet',
+	chainId:   '0x27100',
+	decimal:     160000,
+	rpcUrls: [
+		'https://devnet.foolprooflabs.io/',
+	],
+	//blockExplorerUrls: ''
+};
+EthereumSession.COMMON_CHAINS['0x27100'] = EthereumSession.COMMON_CHAINS[97];
+
+
+EthereumSession.COMMON_CHAINS[42161] = {
+	chainName: 'Arbitrum One',
+	chainId:   '0xa4b1',
+	decimal:     42161,
+	rpcUrls: [
+		'https://arb1.arbitrum.io/rpc',
+	],
+	blockExplorerUrls: [
+		'https://blockExplorerUrls.arbitrum.io',
+	]
+};
+EthereumSession.COMMON_CHAINS['0xa4b1'] = EthereumSession.COMMON_CHAINS[42161];
+
+
+EthereumSession.COMMON_CHAINS[421613] = {
+	chainName: 'Arbitrum Goerli',
+	chainId:   '0x66eed',
+	decimal:     421613,
+	rpcUrls: [
+		'https://goerli-rollup.arbitrum.io/rpc/',
+	],
+	blockExplorerUrls: [
+		'https://goerli-rollup-blockExplorerUrls.arbitrum.io',
+	]
+};
+EthereumSession.COMMON_CHAINS['0x66eed'] = EthereumSession.COMMON_CHAINS[421613];
+
+
+EthereumSession.COMMON_CHAINS[71401] = {
+	chainName: 'Nervos Testnet',
+	chainId:   '0x116e9',
+	decimal:      71401,
+	rpcUrls: [
+		'https://godwoken-testnet-v1.ckbapp.dev'
+	],
+};
+EthereumSession.COMMON_CHAINS['0x116e9'] = EthereumSession.COMMON_CHAINS[71401];
+
+
+EthereumSession.COMMON_CHAINS[80001] = {
+	chainName: 'Polygon Mumbai Testnet',
+	chainId:   '0x13881',
+	decimal:      80001,
+	rpcUrls: [
+		'https://matic-mumbai.chainstacklabs.com/'
+	],
+};
+EthereumSession.COMMON_CHAINS['0x13881'] = EthereumSession.COMMON_CHAINS[80001];
+
+
+EthereumSession.COMMON_CHAINS[11155111] = {
+	chainName: 'Sepolia Testnet',
+	chainId:   '0xaa36a7',
+	decimal:    11155111,
+	rpcUrls: [
+		'https://sepolia.etherscan.io/',
+	],
+	blockExplorerUrls: [
+		'https://sepolia.etherscan.io'
+	]
+};
+EthereumSession.COMMON_CHAINS['0xaa36a7'] = EthereumSession.COMMON_CHAINS[11155111];
+
 
 class Wallet{
 	accounts = [];

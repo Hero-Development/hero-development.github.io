@@ -206,18 +206,20 @@ class EthereumDriver{
 			if(error.data){
 				const selector = error.data.substring(0, 10);
 				const abi = this.session.errors[selector];
-				if(abi.inputs?.length){
-					const args = error.data.substring(10);
-					const decoded = this.session.web3client.eth.abi.decodeParameters(abi.inputs, args);
-					
-					const params = [];
-					for(let i = 0; i < abi.inputs.length; ++i){
-						params.push(decoded[i]);
+				if(abi){
+					if(abi.inputs?.length){
+						const args = error.data.substring(10);
+						const decoded = this.session.web3client.eth.abi.decodeParameters(abi.inputs, args);
+						
+						const params = [];
+						for(let i = 0; i < abi.inputs.length; ++i){
+							params.push(decoded[i]);
+						}
+						error.message = abi.name +'('+ params.join(', ') +')';
 					}
-					error.message = abi.name +'('+ params.join(', ') +')';
-				}
-				else{
-					error.message = abi.name;
+					else{
+						error.message = abi.name;
+					}
 				}
 			}
 
@@ -571,9 +573,9 @@ class EthereumDriver{
 
 		let html = '';
 		for( let contract of filtered ){
-			let chain = '(unknown)';
-			if( contract.chainID ){
-				chain = EthereumSession.COMMON_CHAINS[ contract.chainID ].name;
+			let chainName = '(unknown)';
+			if(contract.chainID && EthereumSession.COMMON_CHAINS[contract.chainID]){
+				chainName = EthereumSession.COMMON_CHAINS[contract.chainID].chainName;
 			}
 
 
@@ -595,7 +597,7 @@ class EthereumDriver{
 						+'<a class="delete-contract" href="#" data-chain="'+ contract.chainID +'" data-address="'+ contract.address +'">'
 							+'&times</a></td>'
 					+`<td class="date">${created}</td>`
-					+`<td>${chain}</td>`
+					+`<td>${chainName}</td>`
 					+`<td>${address}</td>`
 					+`<td>${contract.name}</td>`
 					+`<td>${contract.symbol}</td>`
@@ -608,6 +610,22 @@ class EthereumDriver{
 	static preventDefault( evt ){
 		if( evt && evt.cancelable )
 			evt.preventDefault();
+	}
+
+	async promptWalletAccounts(evt){
+		try{
+			await this.getProvider().request({
+				method: "wallet_requestPermissions",
+				params: [
+					{
+						eth_accounts: {}
+					}
+				]
+			});
+		}
+		catch(err){
+			alert();
+		}
 	}
 
 	//TODO: run-once
@@ -641,7 +659,7 @@ class EthereumDriver{
 		if( changeWallet ){
 			changeWallet.addEventListener( 'click', async (evt) => {
 				EthereumDriver.preventDefault( evt );
-				this.session.wallet.accounts = await this.session.requestWalletAccounts();
+				this.promptWalletAccounts();			
 			});
 		}
 
@@ -893,9 +911,9 @@ class EthereumDriver{
 
 		//TODO: owner()
 		//TODO: if correct chain
-		if( this.session.chain && this.session.chain.name ){
-			const network = this.session.chain.name +' ('+ this.session.chain.decimal +')';
-			document.getElementById( 'contract-detail' ).querySelector( '.network' ).innerHTML = this.session.chain.name;
+		if(this.session.chain?.chainName){
+			const network = this.session.chain.chainName +' ('+ this.session.chain.decimal +')';
+			document.getElementById( 'contract-detail' ).querySelector( '.network' ).innerHTML = this.session.chain.chainName;
 		}
 		else{
 			document.getElementById( 'contract-detail' ).querySelector( '.network' ).innerHTML = '(unknown)';
@@ -905,8 +923,8 @@ class EthereumDriver{
 			const name = await this.session.contract.methods.name().call();
 			document.getElementById( 'contract-header' ).querySelector( '.name' ).innerText = name;
 		}
-		catch( err ){
-			this.session.warn( err );
+		catch(err){
+			this.session.warn(err);
 			
 			const address = this.session.contractAddress;
 			const pre = address.substring(0, 6);
@@ -920,7 +938,7 @@ class EthereumDriver{
 			document.getElementById( 'contract-header' ).querySelector( '.symbol' ).innerText = `(${symbol})`;
 		}
 		catch( err ){
-			this.session.warn( err );
+			this.session.warn(err);
 			document.getElementById( 'contract-header' ).querySelector( '.symbol' ).innerText = '';
 		}
 
@@ -930,27 +948,26 @@ class EthereumDriver{
 			document.getElementById( 'contract-detail' ).querySelector( '.owner' ).innerText = owner;
 		}
 		catch( err ){
-			this.session.warn( err );
+			this.session.warn(err);
 			document.getElementById( 'contract-detail' ).querySelector( '.owner' ).innerText = '(unknown)';
 		}
 
-
 		try{
 			let address = this.session.contractAddress;
-			const link = EthereumDriver.getEtherscanLink( String( this.session.chain.decimal ), address );
+			const link = EthereumDriver.getEtherscanLink(String(this.session.chain.decimal), address);
 			if( link ){
 				address += `&#8203; <small><a href="${link}" target="_blank" rel="noreferer">&#x2197;</a></small>`;
 				//address += `&#8203; <small>(<a href="${this.session.chain.explorer}/address/${this.session.contractAddress}" target="_blank">Etherscan</a>)</small>`;
 			}
 			else{
-				address = contract.address;
+				address = this.session.contractAddress;
 			}
 
 			document.getElementById( 'contract-detail' ).querySelector( '.address' ).innerHTML = address;
 		}
 		catch( err ){
-			document.getElementById( 'contract-detail' ).querySelector( '.address' ).innerHTML = '';
-			//log the error
+			this.session.warn(err);
+			document.getElementById( 'contract-detail' ).querySelector( '.address' ).innerHTML = this.session.contractAddress;
 		}
 
 
@@ -1343,6 +1360,11 @@ class EthereumDriver{
 			//return '0x' + arg.substring(2).padStart( 64, '0' );
 		});
 
+		while(args.length && !args[args.length - 1]){
+			args.pop();
+		}
+
+
 		const subArgs = {};
 		subArgs.address = this.session.contractAddress;
 		subArgs.fromBlock = 'earliest';
@@ -1522,9 +1544,9 @@ class EthereumDriver{
 	};
 
 	static getEtherscanLink( chainID, address ){
-		if(chainID in EthereumSession.COMMON_CHAINS
-			&& EthereumSession.COMMON_CHAINS[chainID].explorer){
-			return `${EthereumSession.COMMON_CHAINS[chainID].explorer}/address/${address}`;
+		if(EthereumSession.COMMON_CHAINS?.[chainID]?.blockExplorerUrls?.length){
+			const explorer = EthereumSession.COMMON_CHAINS?.[chainID]?.blockExplorerUrls[0];
+			return `${explorer}/address/${address}`;
 		}
 
 		return null;
